@@ -1,0 +1,1105 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ELO Vainilla — Rankings</title>
+<style>
+:root{
+  --bg:#0e0e12;--s1:#15151c;--s2:#1c1c26;--s3:#232330;
+  --border:#2a2a3a;--border2:#38384d;--text:#e8e6f0;--muted:#6b6880;
+  --gold:#d4a843;--gold2:#f0cc70;--teal:#2ecfb0;--red:#e84040;
+  --blue:#4eb5ff;--green:#3ecf88;--purple:#9b7fff;--orange:#ff8c42;
+  --ffa-c:#e06ab0;
+  --font:'Segoe UI',system-ui,sans-serif;--mono:'Consolas',monospace;--r:8px;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:var(--font);font-size:14px;line-height:1.5;min-height:100vh}
+
+/* HEADER */
+header{background:var(--s1);border-bottom:1px solid var(--border);padding:12px 20px;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;position:sticky;top:0;z-index:100}
+.logo{display:flex;align-items:center;gap:10px}
+.logo-icon{width:32px;height:32px;background:var(--gold);border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:15px;color:#000;font-weight:800}
+.logo-text{font-size:15px;font-weight:700}
+.logo-sub{font-family:var(--mono);font-size:10px;color:var(--muted)}
+.header-right{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.last-update{font-family:var(--mono);font-size:10px;color:var(--muted)}
+.btn{padding:6px 13px;border-radius:var(--r);border:1px solid var(--border2);background:var(--s2);color:var(--text);font-size:12px;font-family:var(--font);cursor:pointer;transition:background .15s;white-space:nowrap}
+.btn:hover{background:var(--s3)}
+.btn-teal{border-color:var(--teal);color:var(--teal);background:rgba(46,207,176,0.06)}
+.btn-teal:hover{background:rgba(46,207,176,0.15)}
+.btn-sm{padding:4px 10px;font-size:11px}
+.btn-gold{background:var(--gold);color:#000;border-color:var(--gold);font-weight:600}
+.btn-gold:hover{background:var(--gold2)}
+
+/* SETUP MODAL */
+.setup-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.85);z-index:500;display:flex;align-items:center;justify-content:center;padding:16px;backdrop-filter:blur(6px)}
+.setup-overlay.hidden{display:none}
+.setup-box{background:var(--s1);border:1px solid var(--border2);border-radius:16px;width:100%;max-width:460px;padding:28px 24px}
+.setup-title{font-size:17px;font-weight:700;color:var(--gold);margin-bottom:6px}
+.setup-sub{font-size:12px;color:var(--muted);margin-bottom:20px;line-height:1.6}
+.form-group{margin-bottom:14px}
+.form-label{display:block;font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:5px}
+.form-input{width:100%;background:var(--s2);border:1px solid var(--border2);border-radius:var(--r);color:var(--text);padding:8px 11px;font-size:13px;font-family:var(--mono)}
+.form-input:focus{outline:none;border-color:var(--gold)}
+.setup-hint{font-size:10px;color:var(--muted);margin-top:4px;line-height:1.5}
+.setup-hint a{color:var(--teal);text-decoration:none}
+.setup-actions{display:flex;gap:8px;justify-content:flex-end;margin-top:20px}
+
+/* TABS */
+.tabs{display:flex;border-bottom:1px solid var(--border);background:var(--s1);padding:0 20px;gap:2px;overflow-x:auto}
+.tab{padding:10px 16px;font-size:13px;color:var(--muted);cursor:pointer;border-bottom:2px solid transparent;transition:color .15s;user-select:none;white-space:nowrap}
+.tab:hover{color:var(--text)}
+.tab.active{color:var(--gold);border-bottom-color:var(--gold);font-weight:600}
+.content{padding:20px;max-width:1100px;margin:0 auto}
+.panel{display:none}.panel.active{display:block}
+
+/* LOADING / ERROR */
+.center-msg{text-align:center;padding:60px 20px;color:var(--muted)}
+.center-msg .icon{font-size:36px;margin-bottom:12px}
+.center-msg .title{font-size:15px;font-weight:600;color:var(--text);margin-bottom:6px}
+.center-msg .sub{font-size:12px}
+.spinner{display:inline-block;width:28px;height:28px;border:3px solid var(--border2);border-top-color:var(--gold);border-radius:50%;animation:spin .7s linear infinite;margin-bottom:12px}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+/* PODIUM */
+.podium-wrap{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:20px}
+.podium-card{border-radius:14px;padding:16px 14px;text-align:center;position:relative;overflow:hidden;cursor:pointer;transition:transform .15s,box-shadow .15s}
+.podium-card:hover{transform:translateY(-2px);box-shadow:0 8px 24px rgba(0,0,0,0.4)}
+.podium-rank-icon{font-size:28px;margin-bottom:6px}
+.podium-name{font-size:14px;font-weight:700;margin-bottom:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.podium-country{font-size:16px;margin-bottom:4px}
+.podium-elo{font-family:var(--mono);font-size:20px;font-weight:700;margin-bottom:2px}
+.podium-label{font-family:var(--mono);font-size:10px;opacity:.6;text-transform:uppercase;letter-spacing:.06em}
+.podium-sub{font-size:11px;opacity:.65;margin-top:4px}
+.podium-1{background:linear-gradient(135deg,rgba(212,168,67,.18),rgba(240,204,112,.08));border:1px solid rgba(212,168,67,.35)}
+.podium-2{background:linear-gradient(135deg,rgba(192,192,192,.12),rgba(192,192,192,.05));border:1px solid rgba(192,192,192,.25)}
+.podium-3{background:linear-gradient(135deg,rgba(205,127,50,.14),rgba(205,127,50,.06));border:1px solid rgba(205,127,50,.25)}
+
+/* LEADERBOARD */
+.lb-sort-bar{display:flex;gap:6px;margin-bottom:14px;flex-wrap:wrap;align-items:center}
+.sort-btn{padding:4px 12px;border-radius:20px;border:1px solid var(--border2);background:var(--s2);color:var(--muted);font-size:11px;cursor:pointer;transition:all .15s}
+.sort-btn.active{background:rgba(212,168,67,0.15);border-color:var(--gold);color:var(--gold);font-weight:600}
+.lb-table-wrap{overflow-x:auto}
+/* HISTORY FILTERS */
+.history-filters{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px;align-items:center}
+.filter-btn{padding:4px 11px;border-radius:20px;border:1px solid var(--border2);background:var(--s2);color:var(--muted);font-size:11px;cursor:pointer;transition:all .15s}
+.filter-btn:hover{border-color:var(--gold);color:var(--gold)}
+.filter-btn.active{background:rgba(212,168,67,0.15);border-color:var(--gold);color:var(--gold);font-weight:600}
+.filter-sep{width:1px;background:var(--border);margin:0 3px;align-self:stretch}
+.player-filter{background:var(--s2);border:1px solid var(--border2);border-radius:var(--r);color:var(--text);padding:5px 9px;font-size:12px;font-family:var(--font);min-width:160px}
+.player-filter:focus{outline:none;border-color:var(--gold)}
+table.lb-table{width:100%;border-collapse:collapse;min-width:500px}
+table.lb-table th{background:var(--s2);padding:9px 11px;font-size:10px;color:var(--muted);text-align:left;font-weight:600;letter-spacing:.06em;text-transform:uppercase;border-bottom:1px solid var(--border);white-space:nowrap}
+table.lb-table td{padding:10px 11px;border-bottom:1px solid var(--border2);font-size:12px;vertical-align:middle}
+table.lb-table tr:hover td{background:rgba(255,255,255,0.015);cursor:pointer}
+.rank-num{font-family:var(--mono);font-size:11px;color:var(--muted)}
+.rank-1{color:var(--gold);font-weight:700;font-size:13px}
+.rank-2{color:#c0c0c0;font-weight:700}
+.rank-3{color:#cd7f32;font-weight:700}
+.player-name{font-weight:600;font-size:13px}
+.country-flag{font-size:16px}
+.flag-tip-wrap{position:relative;display:inline-flex;align-items:center}
+.flag-tip-wrap .flag-tip{position:absolute;bottom:calc(100% + 4px);left:50%;transform:translateX(-50%);background:var(--s3);border:1px solid var(--border2);border-radius:5px;padding:3px 8px;font-size:10px;color:var(--text);white-space:nowrap;pointer-events:none;opacity:0;transition:opacity .15s;font-family:var(--mono);z-index:50}
+.flag-tip-wrap:hover .flag-tip{opacity:1}
+.rank-badge{display:inline-flex;align-items:center;justify-content:center;font-family:var(--mono);font-size:9px;font-weight:700;padding:2px 7px;border-radius:4px;min-width:28px}
+.elo-cell{font-family:var(--mono);font-size:12px;font-weight:600}
+.elo-pvp{color:var(--purple)}.elo-team{color:var(--blue)}.elo-ffa{color:var(--ffa-c)}.elo-gen{color:var(--gold)}
+.streak-pos{color:var(--green);font-family:var(--mono);font-size:11px;font-weight:600}
+.streak-neg{color:var(--red);font-family:var(--mono);font-size:11px;font-weight:600}
+.parts-cell{font-family:var(--mono);font-size:10px;color:var(--muted)}
+
+/* STATS GRID */
+.stats-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-bottom:20px}
+.stat-card{background:var(--s1);border:1px solid var(--border);border-radius:12px;padding:14px 16px}
+.stat-val{font-family:var(--mono);font-size:22px;font-weight:700;color:var(--gold);margin-bottom:2px}
+.stat-lbl{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em}
+.stat-sub{font-size:11px;color:var(--muted);margin-top:3px}
+
+/* HISTORY */
+.h-type-badge{font-family:var(--mono);font-size:9px;padding:2px 7px;border-radius:3px;text-transform:uppercase;font-weight:700}
+.h-pvp{background:rgba(155,127,255,0.15);color:var(--purple)}
+.h-team{background:rgba(78,181,255,0.1);color:var(--blue)}
+.h-ffa{background:rgba(224,106,176,0.15);color:var(--ffa-c)}
+.h-winner-badge{font-family:var(--mono);font-size:10px;font-weight:600;padding:2px 8px;border-radius:4px}
+.hw-a{color:var(--blue);background:rgba(78,181,255,0.1);border:1px solid rgba(78,181,255,0.2)}
+.hw-b{color:var(--red);background:rgba(232,64,64,0.1);border:1px solid rgba(232,64,64,0.2)}
+.hw-ffa{color:var(--ffa-c);background:rgba(224,106,176,0.1);border:1px solid rgba(224,106,176,0.2)}
+.h-delta{font-family:var(--mono);font-size:10px;padding:1px 5px;border-radius:3px;font-weight:600}
+.h-delta-pos{color:var(--green);background:rgba(62,207,136,0.12)}
+.h-delta-neg{color:var(--red);background:rgba(232,64,64,0.12)}
+.h-filters{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px;align-items:center}
+.hist-count{font-family:var(--mono);font-size:11px;color:var(--muted);margin-left:auto}
+
+/* PLAYER MODAL */
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.78);z-index:500;display:flex;align-items:center;justify-content:center;padding:16px;backdrop-filter:blur(4px)}
+.modal-overlay.hidden{display:none}
+.modal{background:var(--s1);border:1px solid var(--border2);border-radius:16px;width:100%;max-width:640px;max-height:90vh;overflow-y:auto;box-shadow:0 24px 80px rgba(0,0,0,0.6)}
+.modal-header{padding:18px 22px 14px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;background:var(--s1);z-index:1}
+.modal-avatar{width:46px;height:46px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:700;font-family:var(--mono);flex-shrink:0;margin-right:12px}
+.modal-name{font-size:17px;font-weight:700}
+.modal-sub{font-family:var(--mono);font-size:11px;color:var(--muted);margin-top:2px}
+.modal-close{background:none;border:none;color:var(--muted);cursor:pointer;font-size:20px;padding:4px;line-height:1}
+.modal-close:hover{color:var(--text)}
+.modal-body{padding:18px 22px 22px}
+.modal-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:16px}
+.mstat{background:var(--s2);border:1px solid var(--border);border-radius:10px;padding:10px 12px}
+.mstat-val{font-family:var(--mono);font-size:18px;font-weight:600;margin-bottom:2px}
+.mstat-lbl{font-size:10px;color:var(--muted)}
+.modal-section-title{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;font-family:var(--mono);margin-bottom:8px;margin-top:14px}
+.wbar-row{display:flex;align-items:center;gap:8px;margin-bottom:6px}
+.wbar-label{font-size:11px;min-width:80px;color:var(--muted)}
+.wbar-track{flex:1;height:7px;background:var(--border);border-radius:4px;overflow:hidden}
+.wbar-fill{height:100%;border-radius:4px;transition:width .5s}
+.wbar-pct{font-family:var(--mono);font-size:10px;min-width:34px;text-align:right}
+
+/* CHART */
+.chart-tabs{display:flex;gap:0;margin-bottom:10px;border:1px solid var(--border2);border-radius:6px;overflow:hidden;width:fit-content}
+.chart-tab{padding:5px 14px;font-size:11px;cursor:pointer;border:none;background:var(--s2);color:var(--muted);transition:all .15s;font-family:var(--mono)}
+.chart-tab.active{background:var(--s3);color:var(--gold);font-weight:600}
+.chart-wrap{background:var(--s2);border:1px solid var(--border);border-radius:10px;padding:12px;margin-bottom:14px}
+.chart-title{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;margin-bottom:10px;font-family:var(--mono)}
+canvas.elo-chart{width:100%;height:130px;display:block}
+
+/* COMPARE TAB */
+.compare-selectors{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:20px}
+.compare-player-card{background:var(--s1);border:1px solid var(--border);border-radius:12px;padding:14px}
+.compare-player-select{width:100%;background:var(--s2);border:1px solid var(--border2);border-radius:var(--r);color:var(--text);padding:7px 11px;font-size:13px;font-family:var(--font);margin-bottom:8px}
+.compare-player-select:focus{outline:none;border-color:var(--gold)}
+.compare-player-info{display:flex;align-items:center;gap:8px;min-height:32px}
+.compare-avatar{width:34px;height:34px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;font-family:var(--mono);flex-shrink:0}
+.compare-stats-grid{display:grid;grid-template-columns:1fr auto 1fr;gap:8px;align-items:center;margin-bottom:16px}
+.compare-stat-row{background:var(--s1);border:1px solid var(--border);border-radius:10px;overflow:hidden;margin-bottom:10px}
+.compare-stat-header{padding:8px 14px;border-bottom:1px solid var(--border);font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.06em}
+.compare-row{display:grid;grid-template-columns:1fr 80px 1fr;gap:0;align-items:center;padding:7px 14px;border-bottom:1px solid rgba(42,42,58,0.5)}
+.compare-row:last-child{border-bottom:none}
+.compare-val-a{text-align:right;font-family:var(--mono);font-size:12px;font-weight:600}
+.compare-val-b{text-align:left;font-family:var(--mono);font-size:12px;font-weight:600}
+.compare-label{text-align:center;font-size:10px;color:var(--muted);font-family:var(--mono)}
+.compare-bar{height:6px;border-radius:3px;transition:width .5s}
+.compare-bars-wrap{display:grid;grid-template-columns:1fr 80px 1fr;gap:4px;align-items:center;margin-bottom:3px}
+.bars-a{display:flex;justify-content:flex-end}
+.bars-b{display:flex;justify-content:flex-start}
+.vs-badge{background:var(--s3);border:1px solid var(--border2);border-radius:20px;padding:3px 10px;font-size:10px;font-weight:700;color:var(--muted);text-align:center;white-space:nowrap}
+.head2head-card{background:var(--s1);border:1px solid var(--border);border-radius:12px;padding:14px;margin-bottom:14px}
+.h2h-record{display:grid;grid-template-columns:1fr auto 1fr;gap:8px;align-items:center;text-align:center;margin-bottom:10px}
+.h2h-wins{font-family:var(--mono);font-size:28px;font-weight:700}
+.h2h-label{font-size:10px;color:var(--muted);margin-top:2px}
+.predict-card{background:var(--s1);border:1px solid var(--border);border-radius:12px;padding:14px;margin-bottom:14px}
+.predict-row{display:flex;gap:10px;margin-top:10px}
+.predict-btn{flex:1;padding:10px;border-radius:var(--r);font-size:12px;font-weight:700;cursor:pointer;border:1px solid;transition:all .15s;text-align:center}
+.predict-a{color:var(--blue);border-color:var(--blue);background:rgba(78,181,255,0.06)}
+.predict-a:hover{background:rgba(78,181,255,0.15)}
+.predict-b{color:var(--red);border-color:var(--red);background:rgba(232,64,64,0.06)}
+.predict-b:hover{background:rgba(232,64,64,0.15)}
+.predict-result{background:var(--s2);border:1px solid var(--border);border-radius:10px;padding:12px;margin-top:10px}
+.shared-history-row{padding:8px 14px;border-bottom:1px solid rgba(42,42,58,0.4);display:grid;grid-template-columns:60px 1fr auto;gap:8px;align-items:center;font-size:11px}
+.shared-history-row:last-child{border-bottom:none}
+.compare-chart-wrap{background:var(--s2);border:1px solid var(--border);border-radius:10px;padding:12px;margin-bottom:14px}
+canvas.compare-chart{width:100%;height:160px;display:block}
+
+/* TOAST */
+#toast{position:fixed;bottom:20px;right:20px;background:var(--s3);border:1px solid var(--border2);border-left:3px solid var(--green);border-radius:var(--r);padding:10px 16px;font-size:12px;opacity:0;transition:opacity .2s;pointer-events:none;z-index:999;max-width:260px}
+#toast.show{opacity:1}
+#toast.err{border-left-color:var(--red)}
+
+/* LIVE dot */
+.live-dot{display:inline-flex;align-items:center;gap:5px;font-size:10px;color:var(--green);font-family:var(--mono)}
+.live-dot::before{content:'';width:6px;height:6px;background:var(--green);border-radius:50%;display:inline-block;animation:pulse 2s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
+
+@media(max-width:620px){
+  .modal-grid{grid-template-columns:repeat(2,1fr)}
+  .stats-grid{grid-template-columns:repeat(2,1fr)}
+  .content{padding:14px}
+  .podium-wrap{grid-template-columns:1fr}
+  .compare-selectors{grid-template-columns:1fr}
+}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">
+    <div class="logo-icon">RW</div>
+    <div>
+      <div class="logo-text">ELO Vainilla</div>
+      <div class="logo-sub">Rankings — Rusted Warfare</div>
+    </div>
+  </div>
+  <div class="header-right">
+    <span class="live-dot" id="liveDot" style="display:none">EN VIVO</span>
+    <span class="last-update" id="lastUpdateLbl"></span>
+    <button class="btn btn-gold btn-sm" onclick="exportJson()" id="exportBtn" style="display:none">⬇ Exportar JSON</button>
+    <button class="btn btn-teal btn-sm" onclick="fetchData()">↻ Actualizar</button>
+  </div>
+</header>
+
+<div class="tabs">
+  <div class="tab active" onclick="showTab('leaderboard')">🏆 Ranking</div>
+  <div class="tab" onclick="showTab('history')">📋 Historial</div>
+  <div class="tab" onclick="showTab('overview')">📊 Estadísticas</div>
+  <div class="tab" onclick="showTab('compare')">🔀 Comparar</div>
+</div>
+
+<div class="content">
+
+<!-- LEADERBOARD -->
+<div class="panel active" id="panel-leaderboard">
+  <div id="lbContent"><div class="center-msg"><div class="spinner"></div><div class="title">Cargando rankings...</div></div></div>
+</div>
+
+<!-- HISTORY -->
+<div class="panel" id="panel-history">
+  <div id="histContent"><div class="center-msg"><div class="spinner"></div></div></div>
+</div>
+
+<!-- OVERVIEW -->
+<div class="panel" id="panel-overview">
+  <div id="overviewContent"><div class="center-msg"><div class="spinner"></div></div></div>
+</div>
+
+<!-- COMPARE -->
+<div class="panel" id="panel-compare">
+  <div id="compareContent"><div class="center-msg"><div class="icon">🔀</div><div class="title">Comparar jugadores</div><div class="sub">Cargá los datos primero.</div></div></div>
+</div>
+
+</div>
+
+<!-- PLAYER MODAL -->
+<div class="modal-overlay hidden" id="modalOverlay" onclick="closeModal(event)">
+  <div class="modal" id="modalBox">
+    <div class="modal-header">
+      <div style="display:flex;align-items:center">
+        <div class="modal-avatar" id="modalAvatar"></div>
+        <div>
+          <div class="modal-name" id="modalName"></div>
+          <div class="modal-sub" id="modalSub"></div>
+        </div>
+      </div>
+      <button class="modal-close" onclick="document.getElementById('modalOverlay').classList.add('hidden')">✕</button>
+    </div>
+    <div class="modal-body" id="modalBody"></div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+// ══════════════════════════════════════════
+//  COUNTRIES
+// ══════════════════════════════════════════
+const ALL_COUNTRIES = [
+  ['AR','🇦🇷','Argentina'],['CU','🇨🇺','Cuba'],['MX','🇲🇽','México'],['VE','🇻🇪','Venezuela'],
+  ['CO','🇨🇴','Colombia'],['BR','🇧🇷','Brasil'],['US','🇺🇸','EE.UU.'],['ES','🇪🇸','España'],
+  ['CL','🇨🇱','Chile'],['PE','🇵🇪','Perú'],['EC','🇪🇨','Ecuador'],['BO','🇧🇴','Bolivia'],
+  ['PY','🇵🇾','Paraguay'],['UY','🇺🇾','Uruguay'],['PA','🇵🇦','Panamá'],['DO','🇩🇴','Rep. Dom.'],
+  ['HN','🇭🇳','Honduras'],['GT','🇬🇹','Guatemala'],['SV','🇸🇻','El Salvador'],['CR','🇨🇷','Costa Rica'],
+  ['NI','🇳🇮','Nicaragua'],['PR','🇵🇷','Puerto Rico'],['PT','🇵🇹','Portugal'],['IT','🇮🇹','Italia'],
+  ['FR','🇫🇷','Francia'],['DE','🇩🇪','Alemania'],['GB','🇬🇧','Reino Unido'],['RU','🇷🇺','Rusia'],
+  ['TR','🇹🇷','Turquía'],['CN','🇨🇳','China'],['JP','🇯🇵','Japón'],['KR','🇰🇷','Corea del Sur'],
+  ['PH','🇵🇭','Filipinas'],['IN','🇮🇳','India'],['CA','🇨🇦','Canadá'],['AU','🇦🇺','Australia'],
+  ['PL','🇵🇱','Polonia'],['UA','🇺🇦','Ucrania'],['NL','🇳🇱','Países Bajos'],['SE','🇸🇪','Suecia'],
+  ['NO','🇳🇴','Noruega'],['FI','🇫🇮','Finlandia'],['DK','🇩🇰','Dinamarca'],['CH','🇨🇭','Suiza'],
+  ['AT','🇦🇹','Austria'],['BE','🇧🇪','Bélgica'],['CZ','🇨🇿','Chequia'],['HU','🇭🇺','Hungría'],
+  ['RO','🇷🇴','Rumanía'],['GR','🇬🇷','Grecia'],['IL','🇮🇱','Israel'],['SA','🇸🇦','Arabia Saudita'],
+  ['AE','🇦🇪','Emiratos Árabes'],['EG','🇪🇬','Egipto'],['ZA','🇿🇦','Sudáfrica'],['NG','🇳🇬','Nigeria'],
+  ['KE','🇰🇪','Kenia'],['TH','🇹🇭','Tailandia'],['VN','🇻🇳','Vietnam'],['ID','🇮🇩','Indonesia'],
+  ['MY','🇲🇾','Malasia'],['SG','🇸🇬','Singapur'],['PK','🇵🇰','Pakistán'],['NZ','🇳🇿','Nueva Zelanda'],
+  ['SK','🇸🇰','Eslovaquia'],['BG','🇧🇬','Bulgaria'],['HR','🇭🇷','Croacia'],['RS','🇷🇸','Serbia'],
+  ['IE','🇮🇪','Irlanda'],['IS','🇮🇸','Islandia'],['LT','🇱🇹','Lituania'],['LV','🇱🇻','Letonia'],
+  ['EE','🇪🇪','Estonia'],['BY','🇧🇾','Bielorrusia'],['KZ','🇰🇿','Kazajistán'],['MA','🇲🇦','Marruecos'],
+  ['TW','🇹🇼','Taiwán'],['HK','🇭🇰','Hong Kong'],['BD','🇧🇩','Bangladés'],['TN','🇹🇳','Túnez'],
+];
+const COUNTRY_MAP = Object.fromEntries(ALL_COUNTRIES.map(([c,f,n])=>[c,[f,n]]));
+function flag(code,sz){if(!code||!COUNTRY_MAP[code])return'';const s=sz||16;return`<img src="https://flagcdn.com/${s}x${Math.round(s*0.75)}/${code.toLowerCase()}.png" width="${s}" height="${Math.round(s*0.75)}" alt="${code}" style="border-radius:2px;vertical-align:middle;display:inline-block">`;}
+function countryName(code){return code&&COUNTRY_MAP[code]?COUNTRY_MAP[code][1]:'';}
+
+// ══════════════════════════════════════════
+//  ESTADO
+// ══════════════════════════════════════════
+// El Bin ID / API Key de JSONBin ya NO se piden ni se guardan en el
+// navegador: viven como variables de entorno del servidor (ver
+// netlify/functions/ranking.js) y esta página solo consulta ese endpoint.
+let data = null;
+let lbSort = 'general';
+let histView = 'all';
+let histType = 'all';
+let histPlayerSel = '';
+let refreshTimer = null;
+
+// ══════════════════════════════════════════
+//  FETCH (vía función serverless del hosting)
+// ══════════════════════════════════════════
+async function fetchData(){
+  try{
+    const res=await fetch('/api/ranking',{cache:'no-store'});
+    if(!res.ok)throw new Error(`HTTP ${res.status}`);
+    const json=await res.json();
+    data=json.record||json;
+    ensureFields();
+    const now=new Date().toLocaleString('es',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'});
+    document.getElementById('lastUpdateLbl').textContent=`Actualizado: ${now}`;
+    document.getElementById('liveDot').style.display='';
+    document.getElementById('exportBtn').style.display='';
+    renderAll();
+    clearInterval(refreshTimer);
+    refreshTimer=setInterval(fetchData,180000);
+  }catch(e){
+    showError(`No se pudo cargar el ranking.<br><small style="color:var(--muted)">${e.message}</small><br><br><button class="btn btn-sm btn-teal" onclick="fetchData()" style="margin-top:8px">↻ Reintentar</button>`);
+  }
+}
+
+function ensureFields(){
+  if(!data||!data.roster)return;
+  data.roster.forEach(p=>{
+    if(p.elo_pvp===undefined)p.elo_pvp=p.elo||1500;
+    if(p.elo_team===undefined)p.elo_team=p.elo||1500;
+    if(p.elo_ffa===undefined)p.elo_ffa=1500;
+    p.elo_general=Math.round(((p.elo_pvp||1500)+(p.elo_team||1500)+(p.elo_ffa||1500))/3);
+    if(!p.ffa_wins)p.ffa_wins=0;if(!p.ffa_losses)p.ffa_losses=0;
+    if(!p.pvp_hist)p.pvp_hist=[];if(!p.team_hist)p.team_hist=[];if(!p.ffa_hist)p.ffa_hist=[];
+    if(!p.country)p.country='';
+    p.elo=p.elo_general;
+  });
+  if(!data.history)data.history=[];
+}
+
+function showError(html){
+  ['lbContent','histContent','overviewContent','compareContent'].forEach(id=>{
+    document.getElementById(id).innerHTML=`<div class="center-msg"><div class="icon">⚠️</div><div class="title">Error</div><div class="sub">${html}</div></div>`;
+  });
+}
+
+// ══════════════════════════════════════════
+//  HELPERS
+// ══════════════════════════════════════════
+function getRank(elo){
+  if(elo>=2200)return{label:'SS',bg:'rgba(232,64,64,0.15)',color:'#e04848'};
+  if(elo>=1900)return{label:'S',bg:'rgba(212,168,67,0.15)',color:'#d4a843'};
+  if(elo>=1650)return{label:'A',bg:'rgba(62,207,136,0.12)',color:'#3ecf88'};
+  if(elo>=1500)return{label:'B',bg:'rgba(78,181,255,0.12)',color:'#4eb5ff'};
+  if(elo>=1350)return{label:'C',bg:'rgba(155,127,255,0.12)',color:'#9b7fff'};
+  if(elo>=1150)return{label:'D',bg:'rgba(100,100,120,0.2)',color:'#888899'};
+  if(elo>=900)return{label:'E',bg:'rgba(70,70,80,0.2)',color:'#606070'};
+  return{label:'F',bg:'rgba(50,50,60,0.2)',color:'#404050'};
+}
+function initials(name){return name.replace(/[()]/g,'').split(/[\s_\-]+/).map(w=>w[0]||'').join('').toUpperCase().slice(0,2)||'?';}
+function getHistMode(h){const m=h.mode||h.type||'team';if(m==='teams'||m==='uneven')return'team';return m;}
+function didWin(name,h){
+  if(h.mode==='ffa'||h.type==='ffa'){const wi=h.winnerTeamIdx??0;return(h.teams||[])[wi]?.includes(name)||false;}
+  const inA=(h.teamA||[]).includes(name);return(inA&&h.winnerTeam==='A')||(!inA&&h.winnerTeam==='B');
+}
+function getStreak(name){
+  if(!data)return null;
+  const rel=data.history.filter(h=>[...(h.teamA||[]),...(h.teamB||[]),...(h.teams||[]).flat()].includes(name));
+  let streak=0,sign=0;
+  for(const h of rel){const s=didWin(name,h)?1:-1;if(streak===0){streak=1;sign=s;}else if(s===sign)streak++;else break;}
+  return streak===0?null:{count:streak,won:sign===1};
+}
+function getBestStreak(name){
+  if(!data)return 0;
+  const rel=data.history.filter(h=>[...(h.teamA||[]),...(h.teamB||[]),...(h.teams||[]).flat()].includes(name));
+  let best=0,cur=0,curSign=0;
+  for(let i=rel.length-1;i>=0;i--){
+    const s=didWin(name,rel[i])?1:-1;
+    if(s===curSign)cur++;else{cur=1;curSign=s;}
+    if(curSign===1&&cur>best)best=cur;
+  }
+  return best;
+}
+function streakEl(name){
+  const s=getStreak(name);
+  if(!s)return'<span style="color:var(--muted)">—</span>';
+  if(s.won)return`<span class="streak-pos">🔥 ${s.count}V</span>`;
+  return`<span class="streak-neg">❄ ${s.count}D</span>`;
+}
+function winProb(a,b){return 1/(1+Math.pow(10,(b-a)/400));}
+function getK(elo){return elo<800?40:elo<1200?25:12;}
+
+// ══════════════════════════════════════════
+//  RENDER ALL
+// ══════════════════════════════════════════
+function renderAll(){
+  renderLeaderboard();
+  renderHistory();
+  renderOverview();
+  renderCompare();
+}
+
+// ── LEADERBOARD ──────────────────────────
+function renderLeaderboard(){
+  if(!data)return;
+
+  const sortModeMap={general:'elo_general',pvp:'elo_pvp',team:'elo_team',ffa:'elo_ffa'};
+  const sortKey=sortModeMap[lbSort]||'elo_general';
+  const eloLabel={general:'ELO General',pvp:'ELO PVP',team:'ELO Equipo',ffa:'ELO FFA'};
+  const showPvp=lbSort==='general'||lbSort==='pvp';
+  const showTeam=lbSort==='general'||lbSort==='team';
+  const showFfa=lbSort==='general'||lbSort==='ffa';
+  const showGen=lbSort==='general';
+  const isSingleMode=lbSort!=='general';
+
+  const list=[...data.roster].sort((a,b)=>(b[sortKey]||1500)-(a[sortKey]||1500));
+
+  const sortBar=`<div class="lb-sort-bar">
+    <span style="font-size:11px;color:var(--muted)">Ordenar:</span>
+    ${['general','pvp','team','ffa'].map(m=>`<button class="sort-btn ${lbSort===m?'active':''}" onclick="setLbSort('${m}')">${m.toUpperCase()}</button>`).join('')}
+    <span style="margin-left:auto;font-size:11px;color:var(--muted)">${data.roster.length} jugadores</span>
+  </div>`;
+
+  // TABLE HEADERS
+  let thCols=`<th>#</th><th>Jugador</th><th>País</th>`;
+  if(showPvp&&!isSingleMode)thCols+=`<th>PVP</th>`;
+  if(showTeam&&!isSingleMode)thCols+=`<th>Equipo</th>`;
+  if(showFfa&&!isSingleMode)thCols+=`<th>FFA</th>`;
+  if(isSingleMode)thCols+=`<th>${eloLabel[lbSort]}</th>`;
+  if(showGen)thCols+=`<th>General</th>`;
+  thCols+=`<th>Rango</th><th>Racha</th><th>Partidas</th>`;
+
+  const medalIcons=['🥇','🥈','🥉'];
+  const rows=list.map((p,idx)=>{
+    const rk=getRank(p.elo_general||1500);
+    const rankDisp=idx<3?medalIcons[idx]:`${idx+1}`;
+    const f=flag(p.country||'?');
+    let cols=`<td class="rank-num ${idx===0?'rank-1':idx===1?'rank-2':idx===2?'rank-3':''}">${rankDisp}</td>
+      <td><span class="player-name">${p.name}</span></td>
+      <td><div class="flag-tip-wrap"><span class="country-flag">${f}</span><span class="flag-tip">${countryName(p.country||'')||'Sin país'}</span></div></td>`;
+    if(showPvp&&!isSingleMode)cols+=`<td><span class="elo-cell elo-pvp">${p.elo_pvp||1500}</span></td>`;
+    if(showTeam&&!isSingleMode)cols+=`<td><span class="elo-cell elo-team">${p.elo_team||1500}</span></td>`;
+    if(showFfa&&!isSingleMode)cols+=`<td><span class="elo-cell elo-ffa">${p.elo_ffa||1500}</span></td>`;
+    if(isSingleMode)cols+=`<td><span class="elo-cell" style="color:${lbSort==='pvp'?'var(--purple)':lbSort==='team'?'var(--blue)':'var(--ffa-c)'}">${p[sortKey]||1500}</span></td>`;
+    if(showGen)cols+=`<td><span class="elo-cell elo-gen">${p.elo_general||1500}</span></td>`;
+    cols+=`<td><span class="rank-badge" style="background:${rk.bg};color:${rk.color}">${rk.label}</span></td>
+      <td>${streakEl(p.name)}</td>
+      <td class="parts-cell">${p.partidas||0}</td>`;
+    return`<tr style="cursor:pointer" data-pname="${p.name.replace(/"/g,'&quot;')}" onclick="openPlayer(this.dataset.pname)">${cols}</tr>`;
+  }).join('');
+
+  document.getElementById('lbContent').innerHTML=`
+    ${sortBar}
+    <div class="lb-table-wrap">
+      <table class="lb-table">
+        <thead><tr>${thCols}</tr></thead>
+        <tbody>${rows||'<tr><td colspan="10" style="text-align:center;padding:20px;color:var(--muted)">Sin resultados</td></tr>'}</tbody>
+      </table>
+    </div>`;
+}
+function setLbSort(m){lbSort=m;renderLeaderboard();}
+
+// ── HISTORY ──────────────────────────────
+const FFA_COLORS=['var(--blue)','var(--red)','var(--green)','var(--orange)','var(--ffa-c)'];
+const FFA_LABELS=['A','B','C','D','E'];
+
+function renderHistory(){
+  if(!data)return;
+  let list=[...data.history];
+  if(histType!=='all')list=list.filter(h=>getHistMode(h)===histType);
+  if(histView==='player'&&histPlayerSel)list=list.filter(h=>[...(h.teamA||[]),...(h.teamB||[]),...(h.teams||[]).flat()].includes(histPlayerSel));
+
+  const playerNames=[...data.roster].map(p=>p.name).sort();
+  const playerOpts=playerNames.map(n=>`<option value="${n}" ${n===histPlayerSel?'selected':''}>${n}</option>`).join('');
+
+  const filters=`<div class="history-filters">
+    <button class="filter-btn ${histView==='all'?'active':''}" onclick="setHistView('all')">Todos</button>
+    <button class="filter-btn ${histView==='player'?'active':''}" onclick="setHistView('player')">Por jugador</button>
+    <select class="player-filter" id="histPlayerFilter" onchange="setHistPlayer(this.value)" style="display:${histView==='player'?'':'none'}">
+      <option value="">— Todos —</option>${playerOpts}
+    </select>
+    <div class="filter-sep"></div>
+    <button class="filter-btn ${histType==='all'?'active':''}" onclick="setHistType('all')">Todos</button>
+    <button class="filter-btn ${histType==='pvp'?'active':''}" onclick="setHistType('pvp')">PVP</button>
+    <button class="filter-btn ${histType==='team'?'active':''}" onclick="setHistType('team')">Equipos</button>
+    <button class="filter-btn ${histType==='ffa'?'active':''}" onclick="setHistType('ffa')">FFA</button>
+    <span style="margin-left:auto;font-family:var(--mono);font-size:11px;color:var(--muted)">${list.length} partida${list.length!==1?'s':''}</span>
+  </div>`;
+
+  if(!list.length){
+    document.getElementById('histContent').innerHTML=filters+'<div class="center-msg"><div class="icon">🕹</div><div class="title">Sin partidas</div><div class="sub">No hay partidas con ese filtro.</div></div>';
+    return;
+  }
+
+  const section=`<div style="background:var(--s1);border:1px solid var(--border);border-radius:12px;overflow:hidden">
+    ${list.slice(0,80).map(h=>{
+      const mode=getHistMode(h);
+      const bc=mode==='pvp'?'h-pvp':mode==='ffa'?'h-ffa':'h-team';
+      const ml=mode==='pvp'?'PVP':mode==='ffa'?'FFA':'Equipos';
+      const wc=mode==='ffa'?'hw-ffa':h.winnerTeam==='A'?'hw-a':'hw-b';
+      const wl=mode==='ffa'?`Ganó ${h.winnerTeam||FFA_LABELS[h.winnerTeamIdx||0]}`:`Ganó ${h.winnerTeam}`;
+      let teamsLine='';
+      if(mode==='ffa'&&h.teams){
+        teamsLine=h.teams.map((t,i)=>`<div style="font-size:11px;color:var(--muted)"><span style="color:${FFA_COLORS[i]};font-weight:700">${FFA_LABELS[i]}:</span> <strong style="color:var(--text)">${t.join(', ')}</strong></div>`).join('');
+      }else{
+        teamsLine=`<div style="font-size:11px;color:var(--muted)"><span style="color:var(--blue);font-weight:700">A:</span> <strong style="color:var(--text)">${(h.teamA||[]).join(', ')}</strong></div>
+        <div style="font-size:11px;color:var(--muted)"><span style="color:var(--red);font-weight:700">B:</span> <strong style="color:var(--text)">${(h.teamB||[]).join(', ')}</strong></div>`;
+      }
+      const deltas=(h.changes||[]).map(ch=>{const s=ch.delta>=0?'+':'';const cl=ch.delta>=0?'h-delta-pos':'h-delta-neg';return`<span class="h-delta ${cl}">${ch.n} ${s}${ch.delta}</span>`;}).join('');
+      return`<div style="padding:11px 14px;border-bottom:1px solid rgba(42,42,58,0.5);display:grid;grid-template-columns:72px 1fr auto;gap:10px;align-items:start">
+        <div style="font-family:var(--mono);font-size:10px;color:var(--muted)">${h.ts||''}</div>
+        <div>
+          <span class="h-type-badge ${bc}">${ml}</span>
+          <span style="font-family:var(--mono);font-size:10px;color:var(--muted);margin-left:5px">${h.format||''}</span>
+          <div style="margin-top:4px">${teamsLine}</div>
+          <div style="display:flex;gap:4px;flex-wrap:wrap;margin-top:5px">${deltas}</div>
+        </div>
+        <span class="h-winner-badge ${wc}">${wl}</span>
+      </div>`;
+    }).join('')}
+  </div>`;
+  document.getElementById('histContent').innerHTML=filters+section;
+  if(list.length>80)document.getElementById('histContent').innerHTML+=`<div style="text-align:center;padding:14px;color:var(--muted);font-size:11px">Mostrando las últimas 80 partidas de ${list.length}</div>`;
+}
+function setHistView(v){histView=v;if(v==='all')histPlayerSel='';renderHistory();}
+function setHistType(t){histType=t;renderHistory();}
+function setHistPlayer(n){histPlayerSel=n;renderHistory();}
+
+// ── OVERVIEW ─────────────────────────────
+function buildWinPctAndStreakPanels(){
+  const entries=[];
+  data.roster.forEach(p=>{
+    [{w:p.pvp_wins||0,l:p.pvp_losses||0,label:'PVP',color:'var(--purple)'},
+     {w:p.team_wins||0,l:p.team_losses||0,label:'Equipo',color:'var(--blue)'},
+     {w:p.ffa_wins||0,l:p.ffa_losses||0,label:'FFA',color:'var(--ffa-c)'}
+    ].forEach(m=>{
+      const t=m.w+m.l;
+      if(t>=2)entries.push({name:p.name,label:m.label,color:m.color,w:m.w,l:m.l,t,pct:Math.round(m.w/t*100)});
+    });
+  });
+  entries.sort((a,b)=>b.pct-a.pct||b.t-a.t);
+  const top5wp=entries.slice(0,5);
+  const bot5wp=[...entries].sort((a,b)=>a.pct-b.pct||b.t-a.t).slice(0,5);
+  const streaks=data.roster.map(p=>{
+    const rel=data.history.filter(h=>[...(h.teamA||[]),...(h.teamB||[]),...(h.teams||[]).flat()].includes(p.name));
+    let streak=0,sign=0;
+    for(const h of rel){const s=didWin(p.name,h)?1:-1;if(streak===0){streak=1;sign=s;}else if(s===sign)streak++;else break;}
+    return{name:p.name,count:streak,won:sign===1};
+  }).filter(s=>s.count>0);
+  const topStreaks=[...streaks].filter(s=>s.won).sort((a,b)=>b.count-a.count).slice(0,5);
+  const botStreaks=[...streaks].filter(s=>!s.won).sort((a,b)=>b.count-a.count).slice(0,5);
+  const wpRow=(e,i,best)=>`<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--border2)">
+    <span style="font-family:var(--mono);font-size:10px;color:var(--muted);min-width:16px">${i+1}</span>
+    <span style="flex:1;font-size:11px;font-weight:600">${flag(data.roster.find(r=>r.name===e.name)?.country||'?')} ${e.name}</span>
+    <span style="font-size:10px;color:${e.color};background:${e.color}18;padding:1px 6px;border-radius:3px;font-family:var(--mono)">${e.label}</span>
+    <span style="font-family:var(--mono);font-size:11px;color:${best?'var(--green)':'var(--red)'};font-weight:700">${e.pct}%</span>
+    <span style="font-family:var(--mono);font-size:10px;color:var(--muted)">(${e.w}V/${e.l}D)</span>
+  </div>`;
+  const stRow=(s,i,best)=>`<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--border2)">
+    <span style="font-family:var(--mono);font-size:10px;color:var(--muted);min-width:16px">${i+1}</span>
+    <span style="flex:1;font-size:11px;font-weight:600">${flag(data.roster.find(r=>r.name===s.name)?.country||'?')} ${s.name}</span>
+    <span style="font-family:var(--mono);font-size:12px;color:${best?'var(--green)':'var(--red)'};font-weight:700">${best?'🔥':'❄'} ${s.count}${best?'V':'D'}</span>
+  </div>`;
+  const panel=(title,rows)=>`<div style="background:var(--s1);border:1px solid var(--border);border-radius:12px;padding:14px 16px">
+    <div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:10px">${title}</div>
+    ${rows}
+  </div>`;
+  return`<div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:14px">
+    <div style="display:flex;flex-direction:column;gap:10px">
+      ${panel('🏅 Mejor Win% por categoría',top5wp.map((e,i)=>wpRow(e,i,true)).join('')||'<div style="color:var(--muted);font-size:11px">Sin datos suficientes</div>')}
+      ${panel('📉 Peor Win% por categoría',bot5wp.map((e,i)=>wpRow(e,i,false)).join('')||'<div style="color:var(--muted);font-size:11px">Sin datos suficientes</div>')}
+    </div>
+    <div style="display:flex;flex-direction:column;gap:10px">
+      ${panel('🔥 Mejores rachas actuales',topStreaks.map((s,i)=>stRow(s,i,true)).join('')||'<div style="color:var(--muted);font-size:11px">Sin rachas ganadoras</div>')}
+      ${panel('❄ Peores rachas actuales',botStreaks.map((s,i)=>stRow(s,i,false)).join('')||'<div style="color:var(--muted);font-size:11px">Sin rachas perdedoras</div>')}
+    </div>
+  </div>`;
+}
+
+function renderOverview(){
+  if(!data)return;
+  const r=data.roster,h=data.history;
+  const byGen=[...r].sort((a,b)=>b.elo_general-a.elo_general);
+  const byPvp=[...r].sort((a,b)=>b.elo_pvp-a.elo_pvp);
+  const byTeam=[...r].sort((a,b)=>b.elo_team-a.elo_team);
+  const byFfa=[...r].sort((a,b)=>b.elo_ffa-a.elo_ffa);
+  const pvpGames=h.filter(x=>getHistMode(x)==='pvp').length;
+  const teamGames=h.filter(x=>getHistMode(x)==='team').length;
+  const ffaGames=h.filter(x=>getHistMode(x)==='ffa').length;
+  const mostGames=[...r].sort((a,b)=>b.partidas-a.partidas)[0];
+  const podium=(list,eloKey,color)=>list.slice(0,3).map((p,i)=>{
+    const medals=['🥇','🥈','🥉'];
+    return`<div style="display:flex;align-items:center;gap:8px;padding:7px 0;border-bottom:1px solid var(--border2)">
+      <span style="font-size:14px">${medals[i]}</span>
+      <span style="font-size:16px">${flag(p.country||'?')}</span>
+      <span style="font-weight:600;flex:1">${p.name}</span>
+      <span style="font-family:var(--mono);font-size:12px;color:${color}">${p[eloKey]||1500}</span>
+    </div>`;
+  }).join('');
+  const podiumCard=(title,list,eloKey,color)=>`
+    <div style="background:var(--s1);border:1px solid var(--border);border-radius:12px;padding:14px 16px">
+      <div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:10px">${title}</div>
+      ${podium(list,eloKey,color)}
+    </div>`;
+  document.getElementById('overviewContent').innerHTML=`
+    <div class="stats-grid">
+      <div class="stat-card"><div class="stat-val">${h.length}</div><div class="stat-lbl">Partidas jugadas</div></div>
+      <div class="stat-card"><div class="stat-val">${r.filter(p=>p.partidas>0).length}</div><div class="stat-lbl">Jugadores activos</div><div class="stat-sub">de ${r.length} en roster</div></div>
+      <div class="stat-card"><div class="stat-val" style="color:var(--purple)">${pvpGames}</div><div class="stat-lbl">Partidas PVP</div></div>
+      <div class="stat-card"><div class="stat-val" style="color:var(--blue)">${teamGames}</div><div class="stat-lbl">Partidas Equipo</div></div>
+      <div class="stat-card"><div class="stat-val" style="color:var(--ffa-c)">${ffaGames}</div><div class="stat-lbl">Partidas FFA</div></div>
+      ${mostGames?`<div class="stat-card"><div class="stat-val" style="font-size:15px">${mostGames.name}</div><div class="stat-lbl">Más partidas</div><div class="stat-sub">${mostGames.partidas} jugadas</div></div>`:''}
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px;margin-top:4px">
+      ${podiumCard('🏆 Top General',byGen,'elo_general','var(--gold)')}
+      ${podiumCard('🗡 Top PVP',byPvp,'elo_pvp','var(--purple)')}
+      ${podiumCard('🛡 Top Equipo',byTeam,'elo_team','var(--blue)')}
+      ${podiumCard('👑 Top FFA',byFfa,'elo_ffa','var(--ffa-c)')}
+    </div>
+    ${buildWinPctAndStreakPanels()}`;
+}
+
+// ── COMPARE TAB ────────────────────────────
+let compareA='',compareB='';
+
+function renderCompare(){
+  if(!data){
+    document.getElementById('compareContent').innerHTML='<div class="center-msg"><div class="icon">🔀</div><div class="title">Sin datos</div><div class="sub">Cargá los datos primero.</div></div>';
+    return;
+  }
+  const names=data.roster.map(p=>p.name).sort();
+  const selOpts=names.map(n=>`<option value="${n}" ${n===compareA?'selected':''}>${n}</option>`).join('');
+  const selOptsB=names.map(n=>`<option value="${n}" ${n===compareB?'selected':''}>${n}</option>`).join('');
+
+  let body=`
+    <div class="compare-selectors">
+      <div class="compare-player-card" style="border-color:rgba(78,181,255,0.35)">
+        <div style="font-size:10px;font-weight:700;color:var(--blue);text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px">Jugador A</div>
+        <select class="compare-player-select" onchange="compareA=this.value;renderCompareResults()">
+          <option value="">— Elegir jugador A —</option>${selOpts}
+        </select>
+        <div class="compare-player-info" id="compareInfoA"></div>
+      </div>
+      <div class="compare-player-card" style="border-color:rgba(232,64,64,0.35)">
+        <div style="font-size:10px;font-weight:700;color:var(--red);text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px">Jugador B</div>
+        <select class="compare-player-select" onchange="compareB=this.value;renderCompareResults()">
+          <option value="">— Elegir jugador B —</option>${selOptsB}
+        </select>
+        <div class="compare-player-info" id="compareInfoB"></div>
+      </div>
+    </div>
+    <div id="compareResults"></div>`;
+
+  document.getElementById('compareContent').innerHTML=body;
+  if(compareA&&compareB)renderCompareResults();
+}
+
+function renderCompareResults(){
+  const res=document.getElementById('compareResults');
+  if(!compareA||!compareB){res.innerHTML='<div class="center-msg" style="padding:20px"><div class="sub">Seleccioná ambos jugadores para comparar.</div></div>';return;}
+  if(compareA===compareB){res.innerHTML='<div class="center-msg" style="padding:20px"><div class="sub">Seleccioná dos jugadores diferentes.</div></div>';return;}
+
+  const pA=data.roster.find(r=>r.name===compareA);
+  const pB=data.roster.find(r=>r.name===compareB);
+  if(!pA||!pB)return;
+
+  const rkA=getRank(pA.elo_general||1500);
+  const rkB=getRank(pB.elo_general||1500);
+
+  // Update info headers
+  const infoCard=(p,rk,color)=>`
+    <div class="compare-avatar" style="background:${rk.bg};color:${rk.color};border:2px solid ${rk.color}">${initials(p.name)}</div>
+    <div>
+      <div style="font-weight:700;font-size:13px">${flag(p.country||'?')} ${p.name}</div>
+      <div style="font-size:10px;color:var(--muted);font-family:var(--mono)">Rango ${rk.label} · ${p.elo_general||1500} ELO</div>
+    </div>`;
+  document.getElementById('compareInfoA').innerHTML=infoCard(pA,rkA,'var(--blue)');
+  document.getElementById('compareInfoB').innerHTML=infoCard(pB,rkB,'var(--red)');
+
+  // Stats comparison
+  const compRow=(label,valA,valB,higherIsBetter=true,unit='')=>{
+    const a=parseFloat(valA)||0,b=parseFloat(valB)||0;
+    const aBetter=higherIsBetter?a>b:a<b;
+    const bBetter=higherIsBetter?b>a:b<a;
+    const maxV=Math.max(a,b,1);
+    const pctA=Math.min(100,Math.round(a/maxV*100));
+    const pctB=Math.min(100,Math.round(b/maxV*100));
+    const colorA=aBetter?'var(--green)':bBetter?'var(--red)':'var(--muted)';
+    const colorB=bBetter?'var(--green)':aBetter?'var(--red)':'var(--muted)';
+    return`<div>
+      <div class="compare-bars-wrap">
+        <div class="bars-a"><div class="compare-bar" style="width:${pctA}%;background:var(--blue);opacity:.7"></div></div>
+        <div class="compare-label">${label}</div>
+        <div class="bars-b"><div class="compare-bar" style="width:${pctB}%;background:var(--red);opacity:.7"></div></div>
+      </div>
+      <div class="compare-row">
+        <div class="compare-val-a" style="color:${colorA}">${valA}${unit}</div>
+        <div class="compare-label">&nbsp;</div>
+        <div class="compare-val-b" style="color:${colorB}">${valB}${unit}</div>
+      </div>
+    </div>`;
+  };
+
+  const wpA_pvp=pvpT(pA)?Math.round((pA.pvp_wins||0)/pvpT(pA)*100):0;
+  const wpB_pvp=pvpT(pB)?Math.round((pB.pvp_wins||0)/pvpT(pB)*100):0;
+  const wpA_team=teamT(pA)?Math.round((pA.team_wins||0)/teamT(pA)*100):0;
+  const wpB_team=teamT(pB)?Math.round((pB.team_wins||0)/teamT(pB)*100):0;
+  const wpA_ffa=ffaT(pA)?Math.round((pA.ffa_wins||0)/ffaT(pA)*100):0;
+  const wpB_ffa=ffaT(pB)?Math.round((pB.ffa_wins||0)/ffaT(pB)*100):0;
+  const bsA=getBestStreak(compareA),bsB=getBestStreak(compareB);
+
+  function pvpT(p){return(p.pvp_wins||0)+(p.pvp_losses||0);}
+  function teamT(p){return(p.team_wins||0)+(p.team_losses||0);}
+  function ffaT(p){return(p.ffa_wins||0)+(p.ffa_losses||0);}
+
+  const statsBlock=`<div class="compare-stat-row">
+    <div class="compare-stat-header" style="display:grid;grid-template-columns:1fr 80px 1fr;gap:0">
+      <div style="text-align:right;color:var(--blue)">${pA.name}</div>
+      <div style="text-align:center">VS</div>
+      <div style="text-align:left;color:var(--red)">${pB.name}</div>
+    </div>
+    ${compRow('ELO General',pA.elo_general||1500,pB.elo_general||1500)}
+    ${compRow('ELO PVP',pA.elo_pvp||1500,pB.elo_pvp||1500)}
+    ${compRow('ELO Equipo',pA.elo_team||1500,pB.elo_team||1500)}
+    ${compRow('ELO FFA',pA.elo_ffa||1500,pB.elo_ffa||1500)}
+    ${compRow('Win% PVP',wpA_pvp,wpB_pvp,true,'%')}
+    ${compRow('Win% Equipo',wpA_team,wpB_team,true,'%')}
+    ${compRow('Win% FFA',wpA_ffa,wpB_ffa,true,'%')}
+    ${compRow('Partidas totales',pA.partidas||0,pB.partidas||0)}
+    ${compRow('Victorias totales',pA.wins||0,pB.wins||0)}
+    ${compRow('Mejor racha',bsA,bsB)}
+  </div>`;
+
+  // Head-to-head history
+  const sharedMatches=data.history.filter(h=>{
+    const all=[...(h.teamA||[]),...(h.teamB||[]),...(h.teams||[]).flat()];
+    return all.includes(compareA)&&all.includes(compareB);
+  });
+  let winsA=0,winsB=0,draws=0;
+  sharedMatches.forEach(h=>{
+    const aWon=didWin(compareA,h);
+    const bWon=didWin(compareB,h);
+    if(aWon)winsA++;else if(bWon)winsB++;else draws++;
+  });
+
+  const h2hBlock=`<div class="head2head-card">
+    <div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:12px">⚔ Head-to-head (${sharedMatches.length} partidas juntos)</div>
+    <div class="h2h-record">
+      <div><div class="h2h-wins" style="color:var(--blue)">${winsA}</div><div class="h2h-label" style="color:var(--blue)">${pA.name}</div></div>
+      <div class="vs-badge">VS</div>
+      <div><div class="h2h-wins" style="color:var(--red)">${winsB}</div><div class="h2h-label" style="color:var(--red)">${pB.name}</div></div>
+    </div>
+    ${sharedMatches.length?`<div style="background:var(--s2);border:1px solid var(--border);border-radius:10px;overflow:hidden;margin-top:8px">
+      ${sharedMatches.slice(0,20).map(h=>{
+        const mode=getHistMode(h);
+        const aWon=didWin(compareA,h);
+        const bWon=didWin(compareB,h);
+        const bc=mode==='pvp'?'h-pvp':mode==='ffa'?'h-ffa':'h-team';
+        const ml=mode==='pvp'?'PVP':mode==='ffa'?'FFA':'Equipos';
+        const deltaA=(h.changes||[]).find(c=>c.n===compareA)?.delta;
+        const deltaB=(h.changes||[]).find(c=>c.n===compareB)?.delta;
+        const fmtDelta=(d)=>d===undefined?'—':(d>=0?'+'+d:d);
+        return`<div class="shared-history-row">
+          <div style="font-family:var(--mono);font-size:9px;color:var(--muted)">${h.ts||''}</div>
+          <div><span class="h-type-badge ${bc}">${ml}</span>
+            <span style="margin-left:6px;font-size:10px;color:${aWon?'var(--blue)':'var(--red)'}"><strong>${aWon?pA.name:pB.name}</strong> ganó</span>
+            <span style="margin-left:8px;font-family:var(--mono);font-size:10px;color:var(--blue)">${pA.name}: <strong>${fmtDelta(deltaA)}</strong></span>
+            <span style="margin-left:8px;font-family:var(--mono);font-size:10px;color:var(--red)">${pB.name}: <strong>${fmtDelta(deltaB)}</strong></span>
+          </div>
+          <span style="font-family:var(--mono);font-size:10px;color:${aWon?'var(--blue)':bWon?'var(--red)':'var(--muted)'}">${aWon?'✓ A':bWon?'✓ B':'—'}</span>
+        </div>`;
+      }).join('')}
+      ${sharedMatches.length>20?`<div style="padding:8px 14px;font-size:11px;color:var(--muted);text-align:center">Mostrando ${Math.min(20,sharedMatches.length)} de ${sharedMatches.length} partidas juntos</div>`:''}
+    </div>`:'<div style="text-align:center;padding:12px;font-size:11px;color:var(--muted)">No hay partidas juntos en el historial</div>'}
+  </div>`;
+
+  // Shared ELO growth chart
+  const chartBlock=`<div style="background:var(--s1);border:1px solid var(--border);border-radius:12px;padding:14px;margin-bottom:14px">
+    <div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:10px">📈 Evolución ELO General</div>
+    <div class="compare-chart-wrap">
+      <canvas class="compare-chart" id="compareChart" height="160"></canvas>
+    </div>
+    <div style="display:flex;gap:16px;justify-content:center;font-size:11px;margin-top:6px">
+      <span style="color:var(--blue)">● ${pA.name}</span>
+      <span style="color:var(--red)">● ${pB.name}</span>
+    </div>
+  </div>`;
+
+  // Prediction: points if A wins vs if B wins
+  const modeForPred='general';
+  const eloA=pA.elo_general||1500,eloB=pB.elo_general||1500;
+  const K_A=getK(eloA)*2,K_B=getK(eloB)*2;
+  const pA_wins=winProb(eloA,eloB);
+  const pB_wins=1-pA_wins;
+  const deltaA_ifAWins=Math.round(K_A*(1-pA_wins));
+  const deltaA_ifBWins=Math.round(K_A*(0-pA_wins));
+  const deltaB_ifBWins=Math.round(K_B*(1-pB_wins));
+  const deltaB_ifAWins=Math.round(K_B*(0-pB_wins));
+
+  const predictBlock=`<div class="predict-card">
+    <div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px">🎯 Predicción ELO (1v1)</div>
+    <div style="font-size:11px;color:var(--muted);margin-bottom:10px">Basado en ELO General. Probabilidad de victoria: <span style="color:var(--blue)">${Math.round(pA_wins*100)}%</span> ${pA.name} vs <span style="color:var(--red)">${Math.round(pB_wins*100)}%</span> ${pB.name}</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+      <div style="background:rgba(78,181,255,0.06);border:1px solid rgba(78,181,255,0.25);border-radius:10px;padding:12px;text-align:center">
+        <div style="font-size:11px;color:var(--blue);font-weight:700;margin-bottom:8px">Si gana ${pA.name}</div>
+        <div style="color:var(--blue);font-family:var(--mono);font-size:14px"><span style="color:var(--green)">+${deltaA_ifAWins}</span> → ${eloA+deltaA_ifAWins}</div>
+        <div style="font-size:10px;color:var(--muted);margin-top:4px">${pA.name}</div>
+        <div style="color:var(--red);font-family:var(--mono);font-size:14px;margin-top:6px"><span style="color:var(--red)">${deltaB_ifAWins}</span> → ${Math.max(100,eloB+deltaB_ifAWins)}</div>
+        <div style="font-size:10px;color:var(--muted);margin-top:4px">${pB.name}</div>
+      </div>
+      <div style="background:rgba(232,64,64,0.06);border:1px solid rgba(232,64,64,0.25);border-radius:10px;padding:12px;text-align:center">
+        <div style="font-size:11px;color:var(--red);font-weight:700;margin-bottom:8px">Si gana ${pB.name}</div>
+        <div style="color:var(--blue);font-family:var(--mono);font-size:14px"><span style="color:var(--red)">${deltaA_ifBWins}</span> → ${Math.max(100,eloA+deltaA_ifBWins)}</div>
+        <div style="font-size:10px;color:var(--muted);margin-top:4px">${pA.name}</div>
+        <div style="color:var(--red);font-family:var(--mono);font-size:14px;margin-top:6px"><span style="color:var(--green)">+${deltaB_ifBWins}</span> → ${eloB+deltaB_ifBWins}</div>
+        <div style="font-size:10px;color:var(--muted);margin-top:4px">${pB.name}</div>
+      </div>
+    </div>
+  </div>`;
+
+  res.innerHTML=statsBlock+h2hBlock+chartBlock+predictBlock;
+
+  // Draw chart after DOM renders
+  setTimeout(()=>drawCompareChart(pA,pB),60);
+}
+
+function drawCompareChart(pA,pB){
+  const canvas=document.getElementById('compareChart');
+  if(!canvas)return;
+  // Build ELO timeline from all history in chronological order
+  const buildTimeline=(p)=>{
+    const snaps=[
+      ...(p.pvp_hist||[]).map(x=>({...x})),
+      ...(p.team_hist||[]).map(x=>({...x})),
+      ...(p.ffa_hist||[]).map(x=>({...x}))
+    ].sort((a,b)=>new Date(a.ts)-new Date(b.ts));
+    let elo=1500;
+    const pts=[{elo:1500,ts:null}];
+    snaps.forEach(s=>{elo=Math.max(100,elo+s.delta);pts.push({elo,ts:s.ts});});
+    return pts;
+  };
+  const timeA=buildTimeline(pA);
+  const timeB=buildTimeline(pB);
+  const ptsA=timeA.map(x=>x.elo);
+  const ptsB=timeB.map(x=>x.elo);
+  const allPts=[...ptsA,...ptsB];
+  if(allPts.length<2)return;
+  const DPR=window.devicePixelRatio||1;
+  const ctx=canvas.getContext('2d');
+  canvas.width=canvas.offsetWidth*DPR;canvas.height=160*DPR;
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+  const W=canvas.width,H=canvas.height;
+  const minE=Math.min(...allPts)-25,maxE=Math.max(...allPts)+25;
+  const range=maxE-minE||100;
+  const PAD=18*DPR,plotW=W-PAD*2,plotH=H-PAD*2;
+  const xOf=(i,total)=>PAD+i*(plotW/Math.max(total-1,1));
+  const yOf=v=>PAD+plotH-(((v-minE)/range)*plotH);
+  // Grid
+  ctx.strokeStyle='rgba(42,42,58,0.8)';ctx.lineWidth=1;
+  for(let g=0;g<=4;g++){const y=PAD+g*(plotH/4);ctx.beginPath();ctx.moveTo(PAD,y);ctx.lineTo(W-PAD,y);ctx.stroke();}
+  // Draw line helper
+  const drawLine=(pts,color)=>{
+    if(pts.length<2)return;
+    ctx.beginPath();ctx.strokeStyle=color;ctx.lineWidth=2*DPR;ctx.lineJoin='round';
+    pts.forEach((v,i)=>{if(i===0)ctx.moveTo(xOf(i,pts.length),yOf(v));else ctx.lineTo(xOf(i,pts.length),yOf(v));});
+    ctx.stroke();
+    // Fill under
+    const grad=ctx.createLinearGradient(0,PAD,0,H-PAD);
+    grad.addColorStop(0,color+'28');grad.addColorStop(1,color+'00');
+    ctx.beginPath();ctx.moveTo(xOf(0,pts.length),yOf(pts[0]));
+    pts.forEach((v,i)=>ctx.lineTo(xOf(i,pts.length),yOf(v)));
+    ctx.lineTo(xOf(pts.length-1,pts.length),H-PAD);ctx.lineTo(PAD,H-PAD);
+    ctx.closePath();ctx.fillStyle=grad;ctx.fill();
+    // Final value label
+    ctx.fillStyle=color;ctx.font=`bold ${9*DPR}px Consolas`;ctx.textAlign='right';
+    ctx.fillText(pts[pts.length-1],W-PAD+2,yOf(pts[pts.length-1])-5);
+  };
+  drawLine(ptsA,'#4eb5ff');
+  drawLine(ptsB,'#e84040');
+}
+
+// ── CHART (player modal) ────────────────────────────────
+let modalChartName='';
+function switchModalChart(mode,name){
+  modalChartName=name;
+  ['pvp','team','ffa','gen'].forEach(m=>{const el=document.getElementById('vct'+m.charAt(0).toUpperCase()+m.slice(1));if(el)el.classList.toggle('active',m===mode);});
+  const labels={pvp:'PVP',team:'Equipos',ffa:'FFA',gen:'General (todos)'};
+  const el=document.getElementById('vChartTitle');if(el)el.textContent='Evolución ELO — '+(labels[mode]||mode);
+  const p=data.roster.find(r=>r.name===name);
+  if(p){drawModalChart(p,mode);renderModalStats(p,mode);}
+}
+function renderModalStats(p,mode){
+  const el=document.getElementById('vDynStats');if(!el)return;
+  const wpct=(w,l)=>{const t=w+l;return t?Math.round(w/t*100)+'% ('+w+'V/'+l+'D)':'—';};
+  if(mode==='gen'){
+    el.innerHTML=`<div class="modal-section-title">Rendimiento por modo</div>
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:14px">
+        <div class="mstat"><div class="mstat-val elo-pvp" style="font-size:14px">${wpct(p.pvp_wins||0,p.pvp_losses||0)}</div><div class="mstat-lbl">Win% PVP</div></div>
+        <div class="mstat"><div class="mstat-val elo-team" style="font-size:14px">${wpct(p.team_wins||0,p.team_losses||0)}</div><div class="mstat-lbl">Win% Equipo</div></div>
+        <div class="mstat"><div class="mstat-val elo-ffa" style="font-size:14px">${wpct(p.ffa_wins||0,p.ffa_losses||0)}</div><div class="mstat-lbl">Win% FFA</div></div>
+      </div>`;
+  }else{
+    const modeData={
+      pvp:{w:p.pvp_wins||0,l:p.pvp_losses||0,label:'PVP',color:'var(--purple)'},
+      team:{w:p.team_wins||0,l:p.team_losses||0,label:'Equipo',color:'var(--blue)'},
+      ffa:{w:p.ffa_wins||0,l:p.ffa_losses||0,label:'FFA',color:'var(--ffa-c)'},
+    }[mode]||{w:0,l:0,label:'',color:'var(--gold)'};
+    const t=modeData.w+modeData.l;
+    const pct=t?Math.round(modeData.w/t*100):null;
+    el.innerHTML=`<div class="modal-section-title">Rendimiento ${modeData.label}</div>
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:14px">
+        <div class="mstat"><div class="mstat-val" style="color:var(--green)">${modeData.w}</div><div class="mstat-lbl">Victorias</div></div>
+        <div class="mstat"><div class="mstat-val" style="color:var(--red)">${modeData.l}</div><div class="mstat-lbl">Derrotas</div></div>
+        <div class="mstat"><div class="mstat-val" style="color:${modeData.color};font-size:16px">${pct!==null?pct+'%':'—'}</div><div class="mstat-lbl">Win%</div></div>
+      </div>`;
+  }
+}
+function drawModalChart(p,mode){
+  const canvas=document.getElementById('vEloChart');if(!canvas)return;
+  if(mode==='gen'){
+    const snaps=[...(p.pvp_hist||[]).map(x=>({...x,cat:'pvp'})),...(p.team_hist||[]).map(x=>({...x,cat:'team'})),...(p.ffa_hist||[]).map(x=>({...x,cat:'ffa'}))].sort((a,b)=>new Date(a.ts)-new Date(b.ts));
+    let elo=1500;const pts=[1500];
+    snaps.forEach(s=>{elo=Math.max(100,elo+s.delta);pts.push(elo);});
+    drawChart(canvas,pts,snaps,'#d4a843');return;
+  }
+  const snaps=(p[mode+'_hist']||[]);
+  const colors={pvp:'#9b7fff',team:'#4eb5ff',ffa:'#e06ab0'};
+  const pts=snaps.map(s=>s.elo);
+  if(pts.length)pts.unshift(pts[0]-(snaps[0]?.delta||0));
+  drawChart(canvas,pts,snaps,colors[mode]||'#d4a843');
+}
+function drawChart(canvas,pts,snaps,color){
+  const DPR=window.devicePixelRatio||1;
+  const ctx=canvas.getContext('2d');
+  canvas.width=canvas.offsetWidth*DPR;canvas.height=130*DPR;
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+  const W=canvas.width,H=canvas.height;
+  if(!snaps||!snaps.length){
+    ctx.fillStyle='rgba(107,104,128,0.5)';ctx.font=`${11*DPR}px Consolas`;ctx.textAlign='center';
+    ctx.fillText('Sin partidas registradas',W/2,H/2);return;
+  }
+  const candles=snaps.map((s,i)=>({
+    open:pts[i]||pts[0],
+    close:pts[i+1]||pts[i],
+    won:s.won
+  }));
+  const allVals=candles.flatMap(c=>[c.open,c.close]);
+  const minE=Math.min(...allVals)-20,maxE=Math.max(...allVals)+20;
+  const range=maxE-minE||100;
+  const PAD=16*DPR,plotW=W-PAD*2,plotH=H-PAD*2;
+  const yOf=v=>PAD+plotH-((v-minE)/range*plotH);
+  const n=candles.length;
+  const slotW=plotW/n;
+  const bodyW=Math.max(3*DPR,Math.min(14*DPR,slotW*0.65));
+  const xOf=i=>PAD+slotW*(i+0.5);
+  ctx.strokeStyle='rgba(42,42,58,0.8)';ctx.lineWidth=1;
+  for(let g=0;g<=4;g++){const y=PAD+g*(plotH/4);ctx.beginPath();ctx.moveTo(PAD,y);ctx.lineTo(W-PAD,y);ctx.stroke();}
+  candles.forEach((c,i)=>{
+    const x=xOf(i);
+    const yO=yOf(c.open),yC=yOf(c.close);
+    const yTop=Math.min(yO,yC),yBot=Math.max(yO,yC);
+    const bodyH=Math.max(2*DPR,yBot-yTop);
+    const stroke=c.won?'#3ecf88':'#e84040';
+    const fill=c.won?'rgba(62,207,136,0.82)':'rgba(232,64,64,0.82)';
+    ctx.strokeStyle=stroke;ctx.lineWidth=1.2*DPR;
+    ctx.beginPath();ctx.moveTo(x,yTop);ctx.lineTo(x,yBot);ctx.stroke();
+    ctx.fillStyle=fill;
+    ctx.fillRect(x-bodyW/2,yTop,bodyW,bodyH);
+    ctx.strokeStyle=stroke;ctx.lineWidth=0.8*DPR;
+    ctx.strokeRect(x-bodyW/2,yTop,bodyW,bodyH);
+  });
+  const lastElo=pts[pts.length-1];
+  ctx.fillStyle=color;ctx.font=`bold ${9*DPR}px Consolas`;ctx.textAlign='right';
+  ctx.fillText(lastElo,W-PAD+2,yOf(lastElo)-5);
+}
+
+// ── PLAYER MODAL ──────────────────────────
+function openPlayer(name){
+  if(!data)return;
+  const p=data.roster.find(r=>r.name===name);
+  if(!p)return;
+  const rk=getRank(p.elo_general||1500);
+  const av=document.getElementById('modalAvatar');
+  av.textContent=initials(name);av.style.background=rk.bg;av.style.color=rk.color;av.style.border=`2px solid ${rk.color}`;
+  const cn=countryName(p.country||'');document.getElementById('modalName').innerHTML=`${flag(p.country||'')} ${name}${cn?` <span style='font-size:11px;color:var(--muted);font-weight:400'>(${cn})</span>`:''}`;
+  document.getElementById('modalSub').textContent=`General: ${p.elo_general||1500} · PVP: ${p.elo_pvp||1500} · Team: ${p.elo_team||1500} · FFA: ${p.elo_ffa||1500} · Rango ${rk.label}`;
+
+  const pvpT=(p.pvp_wins||0)+(p.pvp_losses||0);
+  const teamT=(p.team_wins||0)+(p.team_losses||0);
+  const ffaT=(p.ffa_wins||0)+(p.ffa_losses||0);
+  const streak=getStreak(name);
+  const rel=data.history.filter(h=>[...(h.teamA||[]),...(h.teamB||[]),...(h.teams||[]).flat()].includes(name));
+  const rc={};
+  rel.forEach(h=>{
+    [...(h.teamA||[]),...(h.teamB||[]),...(h.teams||[]).flat()].filter(n=>n!==name).forEach(r=>{
+      if(!rc[r])rc[r]={games:0,wins:0};rc[r].games++;if(didWin(name,h))rc[r].wins++;
+    });
+  });
+  const rivals=Object.entries(rc).sort((a,b)=>b[1].games-a[1].games).slice(0,4);
+  const wbar=(label,w,l,color)=>{const t=w+l;const pct=t?Math.round(w/t*100):0;
+    return`<div class="wbar-row"><span class="wbar-label">${label}</span><div class="wbar-track"><div class="wbar-fill" style="width:${pct}%;background:${color}"></div></div><span class="wbar-pct" style="color:${color}">${t?pct+'%':'—'}</span></div>`;};
+  const bestStreak=getBestStreak(name);
+  const allSnaps=[...(p.pvp_hist||[]),...(p.team_hist||[]),...(p.ffa_hist||[])];
+  const bestGame=allSnaps.length?allSnaps.reduce((b,x)=>x.delta>b.delta?x:b,allSnaps[0]):null;
+
+  document.getElementById('modalBody').innerHTML=`
+    <div class="modal-grid">
+      <div class="mstat"><div class="mstat-val elo-pvp">${p.elo_pvp||1500}</div><div class="mstat-lbl">ELO PVP</div></div>
+      <div class="mstat"><div class="mstat-val elo-team">${p.elo_team||1500}</div><div class="mstat-lbl">ELO Equipos</div></div>
+      <div class="mstat"><div class="mstat-val elo-ffa">${p.elo_ffa||1500}</div><div class="mstat-lbl">ELO FFA</div></div>
+      <div class="mstat"><div class="mstat-val elo-gen">${p.elo_general||1500}</div><div class="mstat-lbl">ELO General</div></div>
+      <div class="mstat"><div class="mstat-val" style="color:var(--green)">${p.wins||0}</div><div class="mstat-lbl">Victorias totales</div></div>
+      <div class="mstat"><div class="mstat-val" style="color:var(--red)">${p.losses||0}</div><div class="mstat-lbl">Derrotas totales</div></div>
+    </div>
+    <div id="vDynStats"></div>
+    <div class="chart-tabs">
+      <button class="chart-tab active" id="vctPvp" onclick="switchModalChart('pvp','${name.replace(/'/g,"\\'")}')">PVP</button>
+      <button class="chart-tab" id="vctTeam" onclick="switchModalChart('team','${name.replace(/'/g,"\\'")}')">Equipos</button>
+      <button class="chart-tab" id="vctFfa" onclick="switchModalChart('ffa','${name.replace(/'/g,"\\'")}')">FFA</button>
+      <button class="chart-tab" id="vctGen" onclick="switchModalChart('gen','${name.replace(/'/g,"\\'")}')">General</button>
+    </div>
+    <div class="chart-wrap">
+      <div class="chart-title" id="vChartTitle">Evolución ELO — PVP</div>
+      <canvas class="elo-chart" id="vEloChart" width="600" height="130"></canvas>
+    </div>
+    <div class="modal-section-title">Rachas</div>
+    <div class="modal-grid" style="margin-bottom:14px">
+      <div class="mstat"><div class="mstat-val" style="color:${streak?.won?'var(--green)':'var(--red)'}">${streak?`${streak.count}${streak.won?'🔥':'❄'}`:'-'}</div><div class="mstat-lbl">Racha actual</div></div>
+      <div class="mstat"><div class="mstat-val" style="color:var(--green)">${bestStreak||'-'}</div><div class="mstat-lbl">Mejor racha</div></div>
+      <div class="mstat"><div class="mstat-val" style="color:var(--green)">${bestGame?'+'+bestGame.delta:'—'}</div><div class="mstat-lbl">Mejor partida</div></div>
+    </div>
+    ${rivals.length?`<div class="modal-section-title">Rivales frecuentes</div>
+    <div style="display:flex;flex-direction:column;gap:5px">
+      ${rivals.map(([r,d])=>`<div style="display:flex;align-items:center;justify-content:space-between;background:var(--s2);border:1px solid var(--border);border-radius:7px;padding:7px 11px;font-size:11px">
+        <span style="font-weight:600">${flag(data.roster.find(x=>x.name===r)?.country||'?')} ${r}</span>
+        <span style="font-family:var(--mono);font-size:10px;color:var(--muted)">${d.games}p · ${d.games?Math.round(d.wins/d.games*100):0}% W</span>
+      </div>`).join('')}
+    </div>`:''}
+    <div style="margin-top:12px;text-align:center">
+      <button class="btn btn-sm btn-teal" onclick="document.getElementById('modalOverlay').classList.add('hidden');compareA=this.dataset.cname;showTab('compare');renderCompare()" data-cname="${name.replace(/"/g,'&quot;')}">🔀 Comparar con otro jugador</button>
+    </div>`;
+  document.getElementById('modalOverlay').classList.remove('hidden');
+  setTimeout(()=>{drawModalChart(p,'pvp');renderModalStats(p,'pvp');},50);
+}
+function closeModal(e){if(e.target===document.getElementById('modalOverlay'))document.getElementById('modalOverlay').classList.add('hidden');}
+
+// ── TABS ──────────────────────────────────
+const TAB_NAMES=['leaderboard','history','overview','compare'];
+function showTab(id){
+  TAB_NAMES.forEach((n,i)=>{
+    document.querySelectorAll('.tab')[i].classList.toggle('active',n===id);
+    document.getElementById('panel-'+n).classList.toggle('active',n===id);
+  });
+  if(id==='compare')renderCompare();
+}
+
+// ── EXPORT ───────────────────────────────
+function exportJson(){
+  if(!data){toast('Sin datos para exportar','err');return;}
+  const blob=new Blob([JSON.stringify(data,null,2)],{type:'application/json'});
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);
+  a.download=`elo_vainilla_${new Date().toISOString().slice(0,10)}.json`;a.click();
+  toast('✅ JSON exportado');
+}
+
+// ── TOAST ─────────────────────────────────
+let toastTimer;
+function toast(msg,type){
+  const t=document.getElementById('toast');
+  t.textContent=msg;t.className='show'+(type==='err'?' err':'');
+  clearTimeout(toastTimer);toastTimer=setTimeout(()=>t.className='',3000);
+}
+
+// ── INIT ──────────────────────────────────
+fetchData();
+</script>
+</body>
+</html>
