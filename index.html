@@ -240,6 +240,8 @@ canvas.compare-chart{width:100%;height:160px;display:block}
   <div class="tab" onclick="showTab('history')">📋 Historial</div>
   <div class="tab" onclick="showTab('overview')">📊 Estadísticas</div>
   <div class="tab" onclick="showTab('compare')">🔀 Comparar</div>
+  <div class="tab" onclick="showTab('tournaments')">🏅 Torneos</div>
+  <div class="tab" onclick="showTab('report')">📝 Reportar resultado</div>
 </div>
 
 <div class="content">
@@ -262,6 +264,16 @@ canvas.compare-chart{width:100%;height:160px;display:block}
 <!-- COMPARE -->
 <div class="panel" id="panel-compare">
   <div id="compareContent"><div class="center-msg"><div class="icon">🔀</div><div class="title">Comparar jugadores</div><div class="sub">Cargá los datos primero.</div></div></div>
+</div>
+
+<!-- TOURNAMENTS -->
+<div class="panel" id="panel-tournaments">
+  <div id="tournamentsContent"><div class="center-msg"><div class="spinner"></div></div></div>
+</div>
+
+<!-- REPORT RESULT -->
+<div class="panel" id="panel-report">
+  <div id="reportContent"></div>
 </div>
 
 </div>
@@ -316,6 +328,53 @@ function flag(code,sz){if(!code||!COUNTRY_MAP[code])return'';const s=sz||16;retu
 function countryName(code){return code&&COUNTRY_MAP[code]?COUNTRY_MAP[code][1]:'';}
 
 // ══════════════════════════════════════════
+//  GEOGRAFÍA (continente / región) — para el filtro regional del ranking
+// ══════════════════════════════════════════
+const CONTINENT_MAP = {
+  AR:['América','Sudamérica'],CU:['América','Centroamérica y Caribe'],MX:['América','Norteamérica'],
+  VE:['América','Sudamérica'],CO:['América','Sudamérica'],BR:['América','Sudamérica'],
+  US:['América','Norteamérica'],CL:['América','Sudamérica'],PE:['América','Sudamérica'],
+  EC:['América','Sudamérica'],BO:['América','Sudamérica'],PY:['América','Sudamérica'],
+  UY:['América','Sudamérica'],PA:['América','Centroamérica y Caribe'],DO:['América','Centroamérica y Caribe'],
+  HN:['América','Centroamérica y Caribe'],GT:['América','Centroamérica y Caribe'],SV:['América','Centroamérica y Caribe'],
+  CR:['América','Centroamérica y Caribe'],NI:['América','Centroamérica y Caribe'],PR:['América','Centroamérica y Caribe'],
+  CA:['América','Norteamérica'],
+  ES:['Europa','Europa del Sur'],PT:['Europa','Europa del Sur'],IT:['Europa','Europa del Sur'],
+  GR:['Europa','Europa del Sur'],HR:['Europa','Europa del Sur'],BA:['Europa','Europa del Sur'],
+  RS:['Europa','Europa del Sur'],MK:['Europa','Europa del Sur'],AL:['Europa','Europa del Sur'],
+  ME:['Europa','Europa del Sur'],
+  FR:['Europa','Europa Occidental'],DE:['Europa','Europa Occidental'],GB:['Europa','Europa Occidental'],
+  NL:['Europa','Europa Occidental'],CH:['Europa','Europa Occidental'],AT:['Europa','Europa Occidental'],
+  BE:['Europa','Europa Occidental'],IE:['Europa','Europa Occidental'],
+  RU:['Europa','Europa del Este'],PL:['Europa','Europa del Este'],UA:['Europa','Europa del Este'],
+  CZ:['Europa','Europa del Este'],HU:['Europa','Europa del Este'],RO:['Europa','Europa del Este'],
+  SK:['Europa','Europa del Este'],BG:['Europa','Europa del Este'],LT:['Europa','Europa del Este'],
+  LV:['Europa','Europa del Este'],EE:['Europa','Europa del Este'],BY:['Europa','Europa del Este'],
+  MD:['Europa','Europa del Este'],
+  SE:['Europa','Europa Nórdica'],NO:['Europa','Europa Nórdica'],FI:['Europa','Europa Nórdica'],
+  DK:['Europa','Europa Nórdica'],IS:['Europa','Europa Nórdica'],
+  TR:['Asia','Medio Oriente'],IL:['Asia','Medio Oriente'],SA:['Asia','Medio Oriente'],
+  AE:['Asia','Medio Oriente'],IQ:['Asia','Medio Oriente'],IR:['Asia','Medio Oriente'],
+  SY:['Asia','Medio Oriente'],JO:['Asia','Medio Oriente'],LB:['Asia','Medio Oriente'],
+  YE:['Asia','Medio Oriente'],QA:['Asia','Medio Oriente'],KW:['Asia','Medio Oriente'],
+  CN:['Asia','Asia Oriental'],JP:['Asia','Asia Oriental'],KR:['Asia','Asia Oriental'],
+  TW:['Asia','Asia Oriental'],HK:['Asia','Asia Oriental'],MN:['Asia','Asia Oriental'],
+  PH:['Asia','Sudeste Asiático'],TH:['Asia','Sudeste Asiático'],VN:['Asia','Sudeste Asiático'],
+  ID:['Asia','Sudeste Asiático'],MY:['Asia','Sudeste Asiático'],SG:['Asia','Sudeste Asiático'],
+  MM:['Asia','Sudeste Asiático'],
+  IN:['Asia','Asia del Sur'],PK:['Asia','Asia del Sur'],BD:['Asia','Asia del Sur'],
+  LK:['Asia','Asia del Sur'],NP:['Asia','Asia del Sur'],AF:['Asia','Asia del Sur'],
+  GE:['Asia','Cáucaso'],AM:['Asia','Cáucaso'],AZ:['Asia','Cáucaso'],
+  KZ:['Asia','Asia Central'],UZ:['Asia','Asia Central'],
+  EG:['África','África del Norte'],MA:['África','África del Norte'],TN:['África','África del Norte'],
+  DZ:['África','África del Norte'],
+  ZA:['África','África Subsahariana'],NG:['África','África Subsahariana'],KE:['África','África Subsahariana'],
+  GH:['África','África Subsahariana'],
+  AU:['Oceanía','Oceanía'],NZ:['Oceanía','Oceanía'],
+};
+function geoOf(code){return CONTINENT_MAP[code]||[null,null];}
+
+// ══════════════════════════════════════════
 //  ESTADO
 // ══════════════════════════════════════════
 // El Bin ID / API Key de JSONBin ya NO se piden ni se guardan en el
@@ -363,6 +422,8 @@ function ensureFields(){
     p.elo=p.elo_general;
   });
   if(!data.history)data.history=[];
+  if(!data.tournaments)data.tournaments=[];
+  if(!data.pending)data.pending=[];
 }
 
 function showError(html){
@@ -425,9 +486,52 @@ function renderAll(){
   renderHistory();
   renderOverview();
   renderCompare();
+  renderTournaments();
+  renderReportForm();
 }
 
 // ── LEADERBOARD ──────────────────────────
+let lbContinent='', lbRegion='', lbCountry='';
+
+function filteredRoster(){
+  if(!data)return[];
+  return data.roster.filter(p=>{
+    const [cont,reg]=geoOf(p.country);
+    if(lbCountry)return p.country===lbCountry;
+    if(lbRegion)return reg===lbRegion;
+    if(lbContinent)return cont===lbContinent;
+    return true;
+  });
+}
+function regionFilterBar(){
+  const continents=[...new Set(Object.values(CONTINENT_MAP).map(g=>g[0]))].sort();
+  const regionsForCont=lbContinent?[...new Set(Object.entries(CONTINENT_MAP).filter(([,g])=>g[0]===lbContinent).map(([,g])=>g[1]))].sort():[];
+  const countriesForFilter=(data?.roster||[]).filter(p=>{
+    const [cont,reg]=geoOf(p.country);
+    if(lbRegion)return reg===lbRegion;
+    if(lbContinent)return cont===lbContinent;
+    return true;
+  }).map(p=>p.country).filter(Boolean);
+  const uniqueCountries=[...new Set(countriesForFilter)].sort((a,b)=>(countryName(a)||a).localeCompare(countryName(b)||b));
+  return `<div class="region-filter-bar" style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:10px">
+    <span style="font-size:11px;color:var(--muted)">Región:</span>
+    <button class="sort-btn ${!lbContinent?'active':''}" onclick="setLbGeo('','','')">🌎 Global</button>
+    <select class="search-input" style="width:auto;padding:5px 10px;font-size:12px" onchange="setLbGeo(this.value,'','')">
+      <option value="">Continente…</option>
+      ${continents.map(c=>`<option value="${c}" ${lbContinent===c?'selected':''}>${c}</option>`).join('')}
+    </select>
+    ${lbContinent?`<select class="search-input" style="width:auto;padding:5px 10px;font-size:12px" onchange="setLbGeo('${lbContinent}',this.value,'')">
+      <option value="">Región…</option>
+      ${regionsForCont.map(r=>`<option value="${r}" ${lbRegion===r?'selected':''}>${r}</option>`).join('')}
+    </select>`:''}
+    ${(lbContinent||lbRegion)?`<select class="search-input" style="width:auto;padding:5px 10px;font-size:12px" onchange="setLbGeo(lbContinent,lbRegion,this.value)">
+      <option value="">País…</option>
+      ${uniqueCountries.map(c=>`<option value="${c}" ${lbCountry===c?'selected':''}>${flag(c)} ${countryName(c)}</option>`).join('')}
+    </select>`:''}
+  </div>`;
+}
+function setLbGeo(cont,reg,country){lbContinent=cont;lbRegion=reg;lbCountry=country;renderLeaderboard();}
+
 function renderLeaderboard(){
   if(!data)return;
 
@@ -440,12 +544,12 @@ function renderLeaderboard(){
   const showGen=lbSort==='general';
   const isSingleMode=lbSort!=='general';
 
-  const list=[...data.roster].sort((a,b)=>(b[sortKey]||1500)-(a[sortKey]||1500));
+  const list=filteredRoster().sort((a,b)=>(b[sortKey]||1500)-(a[sortKey]||1500));
 
   const sortBar=`<div class="lb-sort-bar">
     <span style="font-size:11px;color:var(--muted)">Ordenar:</span>
     ${['general','pvp','team','ffa'].map(m=>`<button class="sort-btn ${lbSort===m?'active':''}" onclick="setLbSort('${m}')">${m.toUpperCase()}</button>`).join('')}
-    <span style="margin-left:auto;font-size:11px;color:var(--muted)">${data.roster.length} jugadores</span>
+    <span style="margin-left:auto;font-size:11px;color:var(--muted)">${list.length} jugador${list.length===1?'':'es'}${(lbContinent||lbRegion||lbCountry)?' (filtrado)':''}</span>
   </div>`;
 
   // TABLE HEADERS
@@ -477,6 +581,7 @@ function renderLeaderboard(){
   }).join('');
 
   document.getElementById('lbContent').innerHTML=`
+    ${regionFilterBar()}
     ${sortBar}
     <div class="lb-table-wrap">
       <table class="lb-table">
@@ -1071,14 +1176,115 @@ function openPlayer(name){
 }
 function closeModal(e){if(e.target===document.getElementById('modalOverlay'))document.getElementById('modalOverlay').classList.add('hidden');}
 
+// ── TORNEOS (solo lectura para el público) ─
+function bracketRoundLabel(totalRounds,roundIdx){
+  const remaining=totalRounds-roundIdx;
+  if(remaining===1)return'Final';
+  if(remaining===2)return'Semifinal';
+  if(remaining===3)return'Cuartos de final';
+  return`Ronda ${roundIdx+1}`;
+}
+function renderTournaments(){
+  if(!data)return;
+  const el=document.getElementById('tournamentsContent');
+  const list=[...(data.tournaments||[])].sort((a,b)=>(b.createdAt||0)-(a.createdAt||0));
+  if(!list.length){
+    el.innerHTML=`<div class="center-msg"><div class="icon">🏅</div><div class="title">Todavía no hay torneos</div><div class="sub">El admin puede crear uno desde el panel de administración.</div></div>`;
+    return;
+  }
+  el.innerHTML=list.map(t=>{
+    const totalRounds=(t.rounds||[]).length;
+    const bracketHtml=(t.rounds||[]).map((round,ri)=>`
+      <div style="min-width:200px">
+        <div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px">${bracketRoundLabel(totalRounds,ri)}</div>
+        ${round.map(m=>`
+          <div style="background:var(--s1);border:1px solid var(--border);border-radius:8px;padding:8px 10px;margin-bottom:10px">
+            <div style="display:flex;justify-content:space-between;padding:2px 0;${m.winner===m.p1?'color:var(--green);font-weight:700':''}">${m.p1?flag(data.roster.find(r=>r.name===m.p1)?.country||'?')+' '+m.p1:'<span style="color:var(--muted)">— bye —</span>'}</div>
+            <div style="display:flex;justify-content:space-between;padding:2px 0;${m.winner===m.p2?'color:var(--green);font-weight:700':''}">${m.p2?flag(data.roster.find(r=>r.name===m.p2)?.country||'?')+' '+m.p2:'<span style="color:var(--muted)">— bye —</span>'}</div>
+          </div>`).join('')}
+      </div>`).join('');
+    return`<div style="background:var(--s1);border:1px solid var(--border);border-radius:12px;padding:16px 18px;margin-bottom:18px">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;flex-wrap:wrap;gap:6px">
+        <div style="font-size:15px;font-weight:700">${t.name}</div>
+        <span class="chip ${t.status==='finished'?'':''}" style="${t.status==='finished'?'border-color:var(--gold);color:var(--gold)':''}">${t.status==='finished'?'🏆 Finalizado':t.status==='in_progress'?'▶ En curso':'⏳ Por comenzar'}</span>
+      </div>
+      ${t.champion?`<div style="margin-bottom:12px;font-size:13px">🏆 Campeón: <strong style="color:var(--gold)">${flag(data.roster.find(r=>r.name===t.champion)?.country||'?')} ${t.champion}</strong></div>`:''}
+      <div style="display:flex;gap:16px;overflow-x:auto;padding-bottom:6px">${bracketHtml||'<span style="color:var(--muted);font-size:12px">Bracket sin generar todavía.</span>'}</div>
+    </div>`;
+  }).join('');
+}
+
+// ── REPORTAR RESULTADO (jugadores) ─────────
+function renderReportForm(){
+  if(!data)return;
+  const el=document.getElementById('reportContent');
+  const names=[...data.roster].map(p=>p.name).sort();
+  const opts=names.map(n=>`<option value="${n.replace(/"/g,'&quot;')}">${n}</option>`).join('');
+  el.innerHTML=`
+    <div style="max-width:480px;background:var(--s1);border:1px solid var(--border);border-radius:12px;padding:20px">
+      <div style="font-size:15px;font-weight:700;margin-bottom:6px">📝 Reportar resultado de una partida 1v1</div>
+      <div style="font-size:12px;color:var(--muted);margin-bottom:16px;line-height:1.5">Este reporte queda <strong>pendiente de aprobación</strong> del admin — no se aplica al ranking automáticamente. Para partidas en equipo o FFA, pedile al admin que lo cargue directamente.</div>
+      <div class="form-group" style="margin-bottom:12px">
+        <label class="form-label" style="display:block;font-size:11px;color:var(--muted);margin-bottom:4px">Jugador 1</label>
+        <select id="repP1" class="search-input" style="width:100%">${opts}</select>
+      </div>
+      <div class="form-group" style="margin-bottom:12px">
+        <label class="form-label" style="display:block;font-size:11px;color:var(--muted);margin-bottom:4px">Jugador 2</label>
+        <select id="repP2" class="search-input" style="width:100%">${opts}</select>
+      </div>
+      <div class="form-group" style="margin-bottom:12px">
+        <label class="form-label" style="display:block;font-size:11px;color:var(--muted);margin-bottom:4px">¿Quién ganó?</label>
+        <div style="display:flex;gap:8px">
+          <button type="button" id="repWinP1Btn" class="btn btn-sm" style="flex:1" onclick="setRepWinner(1)">Jugador 1</button>
+          <button type="button" id="repWinP2Btn" class="btn btn-sm" style="flex:1" onclick="setRepWinner(2)">Jugador 2</button>
+        </div>
+      </div>
+      <div class="form-group" style="margin-bottom:16px">
+        <label class="form-label" style="display:block;font-size:11px;color:var(--muted);margin-bottom:4px">Nota (opcional)</label>
+        <input id="repNote" class="search-input" style="width:100%" placeholder="ej: mapa X, screenshot en Discord…">
+      </div>
+      <button class="btn btn-gold" style="width:100%" onclick="submitResult()">Enviar reporte</button>
+      <div id="repMsg" style="margin-top:10px;font-size:12px"></div>
+    </div>`;
+  window._repWinner=1;
+}
+function setRepWinner(n){
+  window._repWinner=n;
+  document.getElementById('repWinP1Btn').classList.toggle('btn-gold',n===1);
+  document.getElementById('repWinP2Btn').classList.toggle('btn-gold',n===2);
+}
+async function submitResult(){
+  const p1=document.getElementById('repP1').value;
+  const p2=document.getElementById('repP2').value;
+  const note=document.getElementById('repNote').value.trim();
+  const msgEl=document.getElementById('repMsg');
+  if(!p1||!p2||p1===p2){msgEl.innerHTML='<span style="color:var(--red)">Elegí dos jugadores distintos.</span>';return;}
+  const winner=window._repWinner===2?p2:p1;
+  msgEl.innerHTML='<span style="color:var(--muted)">Enviando…</span>';
+  try{
+    const res=await fetch('/api/submit-result',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({playerA:p1,playerB:p2,winner,note})
+    });
+    if(!res.ok)throw new Error(`HTTP ${res.status}`);
+    msgEl.innerHTML='<span style="color:var(--teal)">✅ Reporte enviado — el admin lo va a revisar.</span>';
+    toast('Reporte enviado, pendiente de aprobación');
+  }catch(e){
+    msgEl.innerHTML=`<span style="color:var(--red)">No se pudo enviar: ${e.message}</span>`;
+  }
+}
+
 // ── TABS ──────────────────────────────────
-const TAB_NAMES=['leaderboard','history','overview','compare'];
+const TAB_NAMES=['leaderboard','history','overview','compare','tournaments','report'];
 function showTab(id){
   TAB_NAMES.forEach((n,i)=>{
     document.querySelectorAll('.tab')[i].classList.toggle('active',n===id);
     document.getElementById('panel-'+n).classList.toggle('active',n===id);
   });
   if(id==='compare')renderCompare();
+  if(id==='tournaments')renderTournaments();
+  if(id==='report')renderReportForm();
 }
 
 // ── EXPORT ───────────────────────────────
