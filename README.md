@@ -24,3 +24,8 @@ Para que la web funcione en Pages, configurá un backend externo (por ejemplo, t
 La app usará:
 - `${RUSTED_API_BASE}/api/ranking`
 - `${RUSTED_API_BASE}/api/submit-result`
+
+## Backend (Worker) y JSONBin
+
+- El Worker usa un Bin ID fijo: `6a406783da38895dfe0960ee`.
+- Ya no lee `JSONBIN_KEY` como variable de entorno.

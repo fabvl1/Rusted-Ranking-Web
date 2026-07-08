@@ -10,22 +10,22 @@
 //   POST /api/submit-result  -> guarda un reporte de resultado pendiente
 //   cualquier otra ruta      -> sirve los archivos estáticos (public/index.html, etc.)
 //
-// El Bin ID y la API Key de JSONBin siguen sin viajar nunca al
-// navegador: se leen de env.JSONBIN_ID / env.JSONBIN_KEY, configuradas
-// en el panel de Cloudflare (Settings → Variables and Secrets).
+// Este Worker usa un Bin ID fijo de JSONBin y no depende de una
+// API Key para hacer las lecturas/escrituras.
 
 const MAX_PENDING = 500;
 const MAX_NOTE_LEN = 200;
+const JSONBIN_ID = '6a406783da38895dfe0960ee';
 
 export default {
   async fetch(request, env, ctx) {
     const url = new URL(request.url);
 
     if (url.pathname === '/api/ranking' && request.method === 'GET') {
-      return handleRanking(env);
+      return handleRanking();
     }
     if (url.pathname === '/api/submit-result' && request.method === 'POST') {
-      return handleSubmitResult(request, env);
+      return handleSubmitResult(request);
     }
 
     // Cualquier otra ruta: servir los archivos estáticos (index.html, etc.)
@@ -33,19 +33,11 @@ export default {
   },
 };
 
-async function handleRanking(env) {
-  const binId = env.JSONBIN_ID;
-  const apiKey = env.JSONBIN_KEY;
-
-  if (!binId) {
-    return json({ error: 'Falta configurar la variable de entorno JSONBIN_ID.' }, 500);
-  }
-
+async function handleRanking() {
   const headers = { 'Content-Type': 'application/json' };
-  if (apiKey) headers['X-Master-Key'] = apiKey;
 
   try {
-    const res = await fetch(`https://api.jsonbin.io/v3/b/${binId}/latest`, { headers });
+    const res = await fetch(`https://api.jsonbin.io/v3/b/${JSONBIN_ID}/latest`, { headers });
     if (!res.ok) return json({ error: `JSONBin respondió HTTP ${res.status}` }, res.status);
     const data = await res.json();
     return json(data, 200, true);
@@ -54,14 +46,7 @@ async function handleRanking(env) {
   }
 }
 
-async function handleSubmitResult(request, env) {
-  const binId = env.JSONBIN_ID;
-  const apiKey = env.JSONBIN_KEY;
-
-  if (!binId || !apiKey) {
-    return json({ error: 'El servidor no tiene configurado JSONBIN_ID / JSONBIN_KEY.' }, 500);
-  }
-
+async function handleSubmitResult(request) {
   let body;
   try {
     body = await request.json();
@@ -81,10 +66,10 @@ async function handleSubmitResult(request, env) {
     return json({ error: 'El ganador tiene que ser uno de los dos jugadores.' }, 400);
   }
 
-  const headers = { 'Content-Type': 'application/json', 'X-Master-Key': apiKey };
+  const headers = { 'Content-Type': 'application/json' };
 
   try {
-    const getRes = await fetch(`https://api.jsonbin.io/v3/b/${binId}/latest`, { headers });
+    const getRes = await fetch(`https://api.jsonbin.io/v3/b/${JSONBIN_ID}/latest`, { headers });
     if (!getRes.ok) return json({ error: `No se pudo leer JSONBin (HTTP ${getRes.status})` }, 502);
     const getJson = await getRes.json();
     const record = getJson.record || {};
@@ -109,7 +94,7 @@ async function handleSubmitResult(request, env) {
       record.pending = record.pending.slice(record.pending.length - MAX_PENDING);
     }
 
-    const putRes = await fetch(`https://api.jsonbin.io/v3/b/${binId}`, {
+    const putRes = await fetch(`https://api.jsonbin.io/v3/b/${JSONBIN_ID}`, {
       method: 'PUT',
       headers,
       body: JSON.stringify(record),
