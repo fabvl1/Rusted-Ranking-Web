@@ -386,6 +386,7 @@ let histView = 'all';
 let histType = 'all';
 let histPlayerSel = '';
 let refreshTimer = null;
+const JSONBIN_FALLBACK_RANKING_URL = 'https://api.jsonbin.io/v3/b/6a406783da38895dfe0960ee/latest';
 const API_BASE = (() => {
   const fromWindow = typeof window.RUSTED_API_BASE === 'string' ? window.RUSTED_API_BASE : '';
   let fromStorage = '';
@@ -395,15 +396,30 @@ const API_BASE = (() => {
 function apiUrl(path){
   return API_BASE ? `${API_BASE}${path}` : path;
 }
+async function fetchRankingJson(){
+  const primaryUrl = apiUrl('/api/ranking');
+  const urls = [primaryUrl];
+  if(!API_BASE && primaryUrl === '/api/ranking') urls.push(JSONBIN_FALLBACK_RANKING_URL);
+
+  let lastError = null;
+  for(const url of urls){
+    try{
+      const res = await fetch(url,{cache:'no-store'});
+      if(!res.ok)throw new Error(`HTTP ${res.status}`);
+      return await res.json();
+    }catch(err){
+      lastError = err;
+    }
+  }
+  throw lastError || new Error('No se pudo cargar el ranking');
+}
 
 // ══════════════════════════════════════════
 //  FETCH (vía función serverless del hosting)
 // ══════════════════════════════════════════
 async function fetchData(){
   try{
-    const res=await fetch(apiUrl('/api/ranking'),{cache:'no-store'});
-    if(!res.ok)throw new Error(`HTTP ${res.status}`);
-    const json=await res.json();
+    const json=await fetchRankingJson();
     data=json.record||json;
     ensureFields();
     const now=new Date().toLocaleString('es',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'});
