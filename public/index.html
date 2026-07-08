@@ -386,13 +386,22 @@ let histView = 'all';
 let histType = 'all';
 let histPlayerSel = '';
 let refreshTimer = null;
+const API_BASE = (() => {
+  const fromWindow = typeof window.RUSTED_API_BASE === 'string' ? window.RUSTED_API_BASE : '';
+  let fromStorage = '';
+  try { fromStorage = localStorage.getItem('RUSTED_API_BASE') || ''; } catch {}
+  return (fromWindow || fromStorage).trim().replace(/\/+$/, '');
+})();
+function apiUrl(path){
+  return API_BASE ? `${API_BASE}${path}` : path;
+}
 
 // ══════════════════════════════════════════
 //  FETCH (vía función serverless del hosting)
 // ══════════════════════════════════════════
 async function fetchData(){
   try{
-    const res=await fetch('/api/ranking',{cache:'no-store'});
+    const res=await fetch(apiUrl('/api/ranking'),{cache:'no-store'});
     if(!res.ok)throw new Error(`HTTP ${res.status}`);
     const json=await res.json();
     data=json.record||json;
@@ -1262,7 +1271,7 @@ async function submitResult(){
   const winner=window._repWinner===2?p2:p1;
   msgEl.innerHTML='<span style="color:var(--muted)">Enviando…</span>';
   try{
-    const res=await fetch('/api/submit-result',{
+    const res=await fetch(apiUrl('/api/submit-result'),{
       method:'POST',
       headers:{'Content-Type':'application/json'},
       body:JSON.stringify({playerA:p1,playerB:p2,winner,note})
