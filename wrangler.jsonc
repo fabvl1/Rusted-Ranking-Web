@@ -1,0 +1,13 @@
+{
+  // ⚠️ Este "name" tiene que coincidir EXACTAMENTE con el nombre que
+  // Cloudflare le puso a tu Worker al conectar el repo (lo viste en el
+  // log de build: "Worker Name: rusted-ranking-web"). Si tu proyecto
+  // tiene otro nombre, cambialo acá para que coincida.
+  "name": "rusted-ranking-web",
+  "main": "src/index.js",
+  "compatibility_date": "2026-07-01",
+  "assets": {
+    "directory": "./public",
+    "binding": "ASSETS"
+  }
+}
