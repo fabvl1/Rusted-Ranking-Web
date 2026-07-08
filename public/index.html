@@ -579,11 +579,11 @@ function renderLeaderboard(){
 
   // TABLE HEADERS
   let thCols=`<th>#</th><th>Jugador</th><th>País</th>`;
+  if(showGen)thCols+=`<th>General</th>`;
   if(showPvp&&!isSingleMode)thCols+=`<th>PVP</th>`;
   if(showTeam&&!isSingleMode)thCols+=`<th>Equipo</th>`;
   if(showFfa&&!isSingleMode)thCols+=`<th>FFA</th>`;
   if(isSingleMode)thCols+=`<th>${eloLabel[lbSort]}</th>`;
-  if(showGen)thCols+=`<th>General</th>`;
   thCols+=`<th>Rango</th><th>Racha</th><th>Partidas</th>`;
 
   const medalIcons=['🥇','🥈','🥉'];
@@ -594,11 +594,11 @@ function renderLeaderboard(){
     let cols=`<td class="rank-num ${idx===0?'rank-1':idx===1?'rank-2':idx===2?'rank-3':''}">${rankDisp}</td>
       <td><span class="player-name">${p.name}</span></td>
       <td><div class="flag-tip-wrap"><span class="country-flag">${f}</span><span class="flag-tip">${countryName(p.country||'')||'Sin país'}</span></div></td>`;
+    if(showGen)cols+=`<td><span class="elo-cell elo-gen">${p.elo_general||1500}</span></td>`;
     if(showPvp&&!isSingleMode)cols+=`<td><span class="elo-cell elo-pvp">${p.elo_pvp||1500}</span></td>`;
     if(showTeam&&!isSingleMode)cols+=`<td><span class="elo-cell elo-team">${p.elo_team||1500}</span></td>`;
     if(showFfa&&!isSingleMode)cols+=`<td><span class="elo-cell elo-ffa">${p.elo_ffa||1500}</span></td>`;
     if(isSingleMode)cols+=`<td><span class="elo-cell" style="color:${lbSort==='pvp'?'var(--purple)':lbSort==='team'?'var(--blue)':'var(--ffa-c)'}">${p[sortKey]||1500}</span></td>`;
-    if(showGen)cols+=`<td><span class="elo-cell elo-gen">${p.elo_general||1500}</span></td>`;
     cols+=`<td><span class="rank-badge" style="background:${rk.bg};color:${rk.color}">${rk.label}</span></td>
       <td>${streakEl(p.name)}</td>
       <td class="parts-cell">${p.partidas||0}</td>`;
