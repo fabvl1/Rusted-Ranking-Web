@@ -201,6 +201,13 @@ canvas.elo-chart{width:100%;height:130px;display:block}
 .compare-chart-wrap{background:var(--s2);border:1px solid var(--border);border-radius:10px;padding:12px;margin-bottom:14px}
 canvas.compare-chart{width:100%;height:160px;display:block}
 
+.teams-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:16px}
+@media(max-width:620px){.teams-grid{grid-template-columns:1fr}}
+.team-card{background:var(--s1);border:1px solid var(--border);border-radius:12px;overflow:hidden;transition:outline .15s}
+.team-header{padding:10px 14px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between}
+.team-name{font-size:13px;font-weight:700;letter-spacing:.04em}
+.team-a .team-name{color:var(--blue)}.team-b .team-name{color:var(--red)}
+.team-body{padding:10px 14px}
 /* TOAST */
 #toast{position:fixed;bottom:20px;right:20px;background:var(--s3);border:1px solid var(--border2);border-left:3px solid var(--green);border-radius:var(--r);padding:10px 16px;font-size:12px;opacity:0;transition:opacity .2s;pointer-events:none;z-index:999;max-width:260px}
 #toast.show{opacity:1}
@@ -1243,70 +1250,81 @@ function renderTournaments(){
   }).join('');
 }
 
-// ── REPORTAR RESULTADO (jugadores) ─────────
+// ── REPORTAR RESULTADO (jugadores) — habla directo con un JSONBin
+//    aparte, dedicado solo a reportes. Esa cuenta/clave NO tiene
+//    acceso al ranking real: si alguien la copia del código fuente,
+//    lo peor que puede hacer es mandar reportes falsos, que el admin
+//    igual revisa antes de aplicar. Por eso no hace falta backend.
+const REPORTS_BIN_ID='6a521859da38895dfe4ed761';
+const REPORTS_API_KEY='$2a$10$Pjsn5e3CwWF7xsoN/xlSvOSwxEkdNCm0Hp6y9MU.G4dfOW5NDXfMO';
+
 function renderReportForm(){
   if(!data)return;
   const el=document.getElementById('reportContent');
   const names=[...data.roster].map(p=>p.name).sort();
-  const opts=names.map(n=>`<option value="${n.replace(/"/g,'&quot;')}">${n}</option>`).join('');
+  const opts=n0=>names.map(n=>`<option value="${n.replace(/"/g,'&quot;')}" ${n===n0?'selected':''}>${n}</option>`).join('');
   el.innerHTML=`
-    <div style="max-width:480px;background:var(--s1);border:1px solid var(--border);border-radius:12px;padding:20px">
-      <div style="font-size:15px;font-weight:700;margin-bottom:6px">📝 Reportar resultado de una partida 1v1</div>
-      <div style="font-size:12px;color:var(--muted);margin-bottom:16px;line-height:1.5">Este reporte queda <strong>pendiente de aprobación</strong> del admin — no se aplica al ranking automáticamente. Para partidas en equipo o FFA, pedile al admin que lo cargue directamente.</div>
-      <div class="form-group" style="margin-bottom:12px">
-        <label class="form-label" style="display:block;font-size:11px;color:var(--muted);margin-bottom:4px">Jugador 1</label>
-        <select id="repP1" class="search-input" style="width:100%">${opts}</select>
-      </div>
-      <div class="form-group" style="margin-bottom:12px">
-        <label class="form-label" style="display:block;font-size:11px;color:var(--muted);margin-bottom:4px">Jugador 2</label>
-        <select id="repP2" class="search-input" style="width:100%">${opts}</select>
-      </div>
-      <div class="form-group" style="margin-bottom:12px">
-        <label class="form-label" style="display:block;font-size:11px;color:var(--muted);margin-bottom:4px">¿Quién ganó?</label>
-        <div style="display:flex;gap:8px">
-          <button type="button" id="repWinP1Btn" class="btn btn-sm" style="flex:1" onclick="setRepWinner(1)">Jugador 1</button>
-          <button type="button" id="repWinP2Btn" class="btn btn-sm" style="flex:1" onclick="setRepWinner(2)">Jugador 2</button>
+    <div style="font-size:12px;color:var(--muted);margin-bottom:16px;line-height:1.5;max-width:560px">📝 Reportá el resultado de una partida <strong>1v1</strong>. Queda <strong>pendiente de aprobación</strong> del admin — no se aplica al ranking automáticamente. Para partidas en equipo o FFA, pedile al admin que las cargue directo.</div>
+    <div class="teams-grid" id="reportGrid" style="max-width:560px">
+      <div class="team-card team-a" id="repCardA" onclick="setRepWinner(1)" style="cursor:pointer">
+        <div class="team-header"><div class="team-name">Jugador 1</div></div>
+        <div class="team-body">
+          <div class="slot-row"><select id="repP1" class="search-input" style="width:100%" onclick="event.stopPropagation()" onchange="renderReportForm()">${opts(window._repP1||names[0])}</select></div>
+          <div style="font-size:11px;color:var(--muted);margin-top:4px" id="repWinLblA">Click en la tarjeta si ganó</div>
         </div>
       </div>
-      <div class="form-group" style="margin-bottom:16px">
-        <label class="form-label" style="display:block;font-size:11px;color:var(--muted);margin-bottom:4px">Nota (opcional)</label>
-        <input id="repNote" class="search-input" style="width:100%" placeholder="ej: mapa X, screenshot en Discord…">
+      <div class="team-card team-b" id="repCardB" onclick="setRepWinner(2)" style="cursor:pointer">
+        <div class="team-header"><div class="team-name">Jugador 2</div></div>
+        <div class="team-body">
+          <div class="slot-row"><select id="repP2" class="search-input" style="width:100%" onclick="event.stopPropagation()" onchange="renderReportForm()">${opts(window._repP2||names[1]||names[0])}</select></div>
+          <div style="font-size:11px;color:var(--muted);margin-top:4px" id="repWinLblB">Click en la tarjeta si ganó</div>
+        </div>
       </div>
-      <button class="btn btn-gold" style="width:100%" onclick="submitResult()">Enviar reporte</button>
+    </div>
+    <div style="max-width:560px;margin-top:12px">
+      <label class="form-label" style="display:block;font-size:11px;color:var(--muted);margin-bottom:4px">Nota (opcional)</label>
+      <input id="repNote" class="search-input" style="width:100%" placeholder="ej: mapa X, screenshot en Discord…" value="${(window._repNote||'').replace(/"/g,'&quot;')}">
+      <button class="btn btn-gold" style="width:100%;margin-top:14px" onclick="submitResult()">Enviar reporte</button>
       <div id="repMsg" style="margin-top:10px;font-size:12px"></div>
     </div>`;
-  window._repWinner=1;
+  window._repWinner=window._repWinner||1;
+  document.getElementById('repCardA').style.outline=window._repWinner===1?'2px solid var(--blue)':'none';
+  document.getElementById('repCardB').style.outline=window._repWinner===2?'2px solid var(--red)':'none';
+  document.getElementById('repWinLblA').textContent=window._repWinner===1?'🏆 Ganó':'Click en la tarjeta si ganó';
+  document.getElementById('repWinLblB').textContent=window._repWinner===2?'🏆 Ganó':'Click en la tarjeta si ganó';
 }
 function setRepWinner(n){
   window._repWinner=n;
-  document.getElementById('repWinP1Btn').classList.toggle('btn-gold',n===1);
-  document.getElementById('repWinP2Btn').classList.toggle('btn-gold',n===2);
+  window._repP1=document.getElementById('repP1').value;
+  window._repP2=document.getElementById('repP2').value;
+  window._repNote=document.getElementById('repNote')?document.getElementById('repNote').value:'';
+  renderReportForm();
 }
 async function submitResult(){
   const p1=document.getElementById('repP1').value;
   const p2=document.getElementById('repP2').value;
-  const note=document.getElementById('repNote').value.trim();
+  const note=document.getElementById('repNote').value.trim().slice(0,200);
   const msgEl=document.getElementById('repMsg');
   if(!p1||!p2||p1===p2){msgEl.innerHTML='<span style="color:var(--red)">Elegí dos jugadores distintos.</span>';return;}
   const winner=window._repWinner===2?p2:p1;
   msgEl.innerHTML='<span style="color:var(--muted)">Enviando…</span>';
   try{
-    const payload=JSON.stringify({playerA:p1,playerB:p2,winner,note});
-    let res=await fetch(apiUrl('/api/report-user'),{
-      method:'POST',
-      headers:{'Content-Type':'application/json'},
-      body:payload
+    const headers={'Content-Type':'application/json','X-Master-Key':REPORTS_API_KEY};
+    const getRes=await fetch(`https://api.jsonbin.io/v3/b/${REPORTS_BIN_ID}/latest`,{headers,cache:'no-store'});
+    if(!getRes.ok)throw new Error(`No se pudo leer (HTTP ${getRes.status})`);
+    const getJson=await getRes.json();
+    const record=getJson.record||{};
+    record.reports=Array.isArray(record.reports)?record.reports:[];
+    record.reports.push({
+      id:'r_'+Date.now().toString(36)+Math.random().toString(36).slice(2,8),
+      playerA:p1,playerB:p2,winner,note,submittedAt:Date.now(),status:'pending'
     });
-    if(!res.ok&&(res.status===404||res.status===405)){
-      res=await fetch(apiUrl('/api/submit-result'),{
-        method:'POST',
-        headers:{'Content-Type':'application/json'},
-        body:payload
-      });
-    }
-    if(!res.ok)throw new Error(`HTTP ${res.status}`);
+    if(record.reports.length>500)record.reports=record.reports.slice(record.reports.length-500);
+    const putRes=await fetch(`https://api.jsonbin.io/v3/b/${REPORTS_BIN_ID}`,{method:'PUT',headers,body:JSON.stringify(record)});
+    if(!putRes.ok)throw new Error(`No se pudo guardar (HTTP ${putRes.status})`);
     msgEl.innerHTML='<span style="color:var(--teal)">✅ Reporte enviado — el admin lo va a revisar.</span>';
     toast('Reporte enviado, pendiente de aprobación');
+    window._repNote='';
   }catch(e){
     msgEl.innerHTML=`<span style="color:var(--red)">No se pudo enviar: ${e.message}</span>`;
   }
