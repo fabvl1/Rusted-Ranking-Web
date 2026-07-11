@@ -437,18 +437,19 @@ async function fetchData(){
 function ensureFields(){
   if(!data||!data.roster)return;
   data.roster.forEach(p=>{
-    if(p.elo_pvp===undefined)p.elo_pvp=p.elo||1500;
-    if(p.elo_team===undefined)p.elo_team=p.elo||1500;
+    const baseElo=Number.isFinite(Number(p.elo_general))?Number(p.elo_general):1500;
+    if(p.elo_pvp===undefined)p.elo_pvp=baseElo;
+    if(p.elo_team===undefined)p.elo_team=baseElo;
     if(p.elo_ffa===undefined)p.elo_ffa=1500;
     p.elo_general=Math.round(((p.elo_pvp||1500)+(p.elo_team||1500)+(p.elo_ffa||1500))/3);
     if(!p.ffa_wins)p.ffa_wins=0;if(!p.ffa_losses)p.ffa_losses=0;
     if(!p.pvp_hist)p.pvp_hist=[];if(!p.team_hist)p.team_hist=[];if(!p.ffa_hist)p.ffa_hist=[];
     if(!p.country)p.country='';
-    p.elo=p.elo_general;
+    delete p.elo;
   });
   if(!data.history)data.history=[];
   if(!data.tournaments)data.tournaments=[];
-  if(!data.pending)data.pending=[];
+  if(!data.reports)data.reports=[];
 }
 
 function showError(html){
@@ -1287,11 +1288,19 @@ async function submitResult(){
   const winner=window._repWinner===2?p2:p1;
   msgEl.innerHTML='<span style="color:var(--muted)">Enviando…</span>';
   try{
-    const res=await fetch(apiUrl('/api/submit-result'),{
+    const payload=JSON.stringify({playerA:p1,playerB:p2,winner,note});
+    let res=await fetch(apiUrl('/api/report-user'),{
       method:'POST',
       headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({playerA:p1,playerB:p2,winner,note})
+      body:payload
     });
+    if(!res.ok&&(res.status===404||res.status===405)){
+      res=await fetch(apiUrl('/api/submit-result'),{
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body:payload
+      });
+    }
     if(!res.ok)throw new Error(`HTTP ${res.status}`);
     msgEl.innerHTML='<span style="color:var(--teal)">✅ Reporte enviado — el admin lo va a revisar.</span>';
     toast('Reporte enviado, pendiente de aprobación');

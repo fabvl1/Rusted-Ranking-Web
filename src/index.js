@@ -7,13 +7,14 @@
 // único Worker con un `fetch` handler. Este archivo hace de router:
 //
 //   GET  /api/ranking        -> lee el ranking desde JSONBin
-//   POST /api/submit-result  -> guarda un reporte de resultado pendiente
+//   POST /api/report-user    -> guarda un reporte pendiente para revisión
+//   POST /api/submit-result  -> alias legacy de /api/report-user
 //   cualquier otra ruta      -> sirve los archivos estáticos (public/index.html, etc.)
 //
 // Este Worker usa un Bin ID fijo de JSONBin y no depende de una
 // API Key para hacer las lecturas/escrituras.
 
-const MAX_PENDING = 500;
+const MAX_REPORTS = 500;
 const MAX_NOTE_LEN = 200;
 const JSONBIN_ID = '6a406783da38895dfe0960ee';
 
@@ -24,7 +25,7 @@ export default {
     if (url.pathname === '/api/ranking' && request.method === 'GET') {
       return handleRanking();
     }
-    if (url.pathname === '/api/submit-result' && request.method === 'POST') {
+    if ((url.pathname === '/api/report-user' || url.pathname === '/api/submit-result') && request.method === 'POST') {
       return handleSubmitResult(request);
     }
 
@@ -80,8 +81,12 @@ async function handleSubmitResult(request) {
       return json({ error: 'Uno de los jugadores no existe en el ranking.' }, 400);
     }
 
-    record.pending = record.pending || [];
-    record.pending.push({
+    record.reports = Array.isArray(record.reports) ? record.reports : [];
+    if (record.reports.length === 0 && Array.isArray(record.pending) && record.pending.length > 0) {
+      record.reports = [...record.pending];
+    }
+
+    record.reports.push({
       id: crypto.randomUUID(),
       playerA,
       playerB,
@@ -90,9 +95,10 @@ async function handleSubmitResult(request) {
       submittedAt: Date.now(),
       status: 'pending',
     });
-    if (record.pending.length > MAX_PENDING) {
-      record.pending = record.pending.slice(record.pending.length - MAX_PENDING);
+    if (record.reports.length > MAX_REPORTS) {
+      record.reports = record.reports.slice(record.reports.length - MAX_REPORTS);
     }
+    delete record.pending;
 
     const putRes = await fetch(`https://api.jsonbin.io/v3/b/${JSONBIN_ID}`, {
       method: 'PUT',
