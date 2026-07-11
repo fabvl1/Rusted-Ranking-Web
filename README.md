@@ -23,7 +23,7 @@ Para que la web funcione en Pages, configurá un backend externo (por ejemplo, t
 
 La app usará:
 - `${RUSTED_API_BASE}/api/ranking`
-- `${RUSTED_API_BASE}/api/submit-result`
+- `${RUSTED_API_BASE}/api/report-user` (o fallback legacy `${RUSTED_API_BASE}/api/submit-result`)
 
 ## Backend (Worker) y JSONBin
 

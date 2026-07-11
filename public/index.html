@@ -166,6 +166,9 @@ canvas.elo-chart{width:100%;height:130px;display:block}
 .compare-player-card{background:var(--s1);border:1px solid var(--border);border-radius:12px;padding:14px}
 .compare-player-select{width:100%;background:var(--s2);border:1px solid var(--border2);border-radius:var(--r);color:var(--text);padding:7px 11px;font-size:13px;font-family:var(--font);margin-bottom:8px}
 .compare-player-select:focus{outline:none;border-color:var(--gold)}
+.search-input{width:100%;background:var(--s2);border:1px solid var(--border2);border-radius:var(--r);color:var(--text);padding:7px 11px;font-size:13px;font-family:var(--font)}
+.search-input:focus{outline:none;border-color:var(--gold)}
+.search-input option{background:var(--s1);color:var(--text)}
 .compare-player-info{display:flex;align-items:center;gap:8px;min-height:32px}
 .compare-avatar{width:34px;height:34px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;font-family:var(--mono);flex-shrink:0}
 .compare-stats-grid{display:grid;grid-template-columns:1fr auto 1fr;gap:8px;align-items:center;margin-bottom:16px}
@@ -437,18 +440,19 @@ async function fetchData(){
 function ensureFields(){
   if(!data||!data.roster)return;
   data.roster.forEach(p=>{
-    if(p.elo_pvp===undefined)p.elo_pvp=p.elo||1500;
-    if(p.elo_team===undefined)p.elo_team=p.elo||1500;
+    const baseElo=Number.isFinite(Number(p.elo_general))?Number(p.elo_general):1500;
+    if(p.elo_pvp===undefined)p.elo_pvp=baseElo;
+    if(p.elo_team===undefined)p.elo_team=baseElo;
     if(p.elo_ffa===undefined)p.elo_ffa=1500;
     p.elo_general=Math.round(((p.elo_pvp||1500)+(p.elo_team||1500)+(p.elo_ffa||1500))/3);
     if(!p.ffa_wins)p.ffa_wins=0;if(!p.ffa_losses)p.ffa_losses=0;
     if(!p.pvp_hist)p.pvp_hist=[];if(!p.team_hist)p.team_hist=[];if(!p.ffa_hist)p.ffa_hist=[];
     if(!p.country)p.country='';
-    p.elo=p.elo_general;
+    delete p.elo;
   });
   if(!data.history)data.history=[];
   if(!data.tournaments)data.tournaments=[];
-  if(!data.pending)data.pending=[];
+  if(!data.reports)data.reports=[];
 }
 
 function showError(html){
@@ -1287,11 +1291,19 @@ async function submitResult(){
   const winner=window._repWinner===2?p2:p1;
   msgEl.innerHTML='<span style="color:var(--muted)">Enviando…</span>';
   try{
-    const res=await fetch(apiUrl('/api/submit-result'),{
+    const payload=JSON.stringify({playerA:p1,playerB:p2,winner,note});
+    let res=await fetch(apiUrl('/api/report-user'),{
       method:'POST',
       headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({playerA:p1,playerB:p2,winner,note})
+      body:payload
     });
+    if(!res.ok&&(res.status===404||res.status===405)){
+      res=await fetch(apiUrl('/api/submit-result'),{
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body:payload
+      });
+    }
     if(!res.ok)throw new Error(`HTTP ${res.status}`);
     msgEl.innerHTML='<span style="color:var(--teal)">✅ Reporte enviado — el admin lo va a revisar.</span>';
     toast('Reporte enviado, pendiente de aprobación');
