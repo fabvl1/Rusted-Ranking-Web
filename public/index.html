@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>ELO Vainilla — Rankings</title
+<title>ELO Vainilla — Rankings</title>
 <style>
 :root{
   --bg:#0e0e12;--s1:#15151c;--s2:#1c1c26;--s3:#232330;
@@ -31,6 +31,9 @@ header{background:var(--s1);border-bottom:1px solid var(--border);padding:12px 2
 .btn-sm{padding:4px 10px;font-size:11px}
 .btn-gold{background:var(--gold);color:#000;border-color:var(--gold);font-weight:600}
 .btn-gold:hover{background:var(--gold2)}
+F.btn-danger{border-color:var(--red);color:var(--red);background:rgba(232,64,64,0.06)}
+.btn-danger:hover{background:rgba(232,64,64,0.15)}
+.chip{display:inline-block;font-size:11px;padding:3px 10px;border-radius:20px;border:1px solid var(--border2);color:var(--muted);background:var(--s2)}
 
 /* SETUP MODAL */
 .setup-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.85);z-index:500;display:flex;align-items:center;justify-content:center;padding:16px;backdrop-filter:blur(6px)}
@@ -1279,7 +1282,6 @@ function renderTournaments(){
 //    acceso al ranking real: si alguien la copia del código fuente,
 //    lo peor que puede hacer es mandar reportes falsos, que el admin
 //    igual revisa antes de aplicar. Por eso no hace falta backend.
-// (REPORTS_BIN_ID y REPORTS_API_KEY ya están declarados arriba)
 
 let repMode='normal';       // 'normal' (1v1/equipos) | 'ffa'
 let repSlotsA=[''], repSlotsB=[''];
@@ -1414,6 +1416,9 @@ function repRemoveFfaTeam(){
   renderReportForm();
 }
 function repSetFfaWinner(idx){repFfaWinnerIdx=idx;renderReportForm();}
+// ── Bin de reportes (aparte del ranking, clave de bajo privilegio) ──
+const REPORTS_BIN_ID='6a521859da38895dfe4ed761';
+const REPORTS_API_KEY='$2a$10$Pjsn5e3CwWF7xsoN/xlSvOSwxEkdNCm0Hp6y9MU.G4dfOW5NDXfMO';
 
 async function submitResult(){
   const note=document.getElementById('repNote').value.trim().slice(0,200);
@@ -1436,13 +1441,20 @@ async function submitResult(){
   }
   msgEl.innerHTML='<span style="color:var(--muted)">Enviando…</span>';
   try{
-    const res=await fetch('/api/report-user',{
-      method:'POST',
-      headers:{'Content-Type':'application/json'},
-      body:JSON.stringify(payload)
+    const headers={'Content-Type':'application/json','X-Master-Key':REPORTS_API_KEY};
+    const getRes=await fetch(`https://api.jsonbin.io/v3/b/${REPORTS_BIN_ID}/latest`,{headers,cache:'no-store'});
+    if(!getRes.ok)throw new Error(`No se pudo leer (HTTP ${getRes.status})`);
+    const getJson=await getRes.json();
+    const record=getJson.record||{};
+    record.reports=Array.isArray(record.reports)?record.reports:[];
+    record.reports.push({
+      id:'r_'+Date.now().toString(36)+Math.random().toString(36).slice(2,8),
+      submittedAt:Date.now(),status:'pending',
+      ...payload
     });
-    const json=await res.json();
-    if(!res.ok)throw new Error(json.error||`HTTP ${res.status}`);
+    if(record.reports.length>500)record.reports=record.reports.slice(record.reports.length-500);
+    const putRes=await fetch(`https://api.jsonbin.io/v3/b/${REPORTS_BIN_ID}`,{method:'PUT',headers,body:JSON.stringify(record)});
+    if(!putRes.ok)throw new Error(`No se pudo guardar (HTTP ${putRes.status})`);
     msgEl.innerHTML='<span style="color:var(--teal)">✅ Reporte enviado — el admin lo va a revisar.</span>';
     toast('Reporte enviado, pendiente de aprobación');
     repSlotsA=[''];repSlotsB=[''];repFfaTeams=[[''],['']];repFfaWinnerIdx=0;repWinner='A';
