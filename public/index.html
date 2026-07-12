@@ -1436,20 +1436,13 @@ async function submitResult(){
   }
   msgEl.innerHTML='<span style="color:var(--muted)">Enviando…</span>';
   try{
-    const headers={'Content-Type':'application/json','X-Master-Key':REPORTS_API_KEY};
-    const getRes=await fetch(`https://api.jsonbin.io/v3/b/${REPORTS_BIN_ID}/latest`,{headers,cache:'no-store'});
-    if(!getRes.ok)throw new Error(`No se pudo leer (HTTP ${getRes.status})`);
-    const getJson=await getRes.json();
-    const record=getJson.record||{};
-    record.reports=Array.isArray(record.reports)?record.reports:[];
-    record.reports.push({
-      id:'r_'+Date.now().toString(36)+Math.random().toString(36).slice(2,8),
-      submittedAt:Date.now(),status:'pending',
-      ...payload
+    const res=await fetch('/api/report-user',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify(payload)
     });
-    if(record.reports.length>500)record.reports=record.reports.slice(record.reports.length-500);
-    const putRes=await fetch(`https://api.jsonbin.io/v3/b/${REPORTS_BIN_ID}`,{method:'PUT',headers,body:JSON.stringify(record)});
-    if(!putRes.ok)throw new Error(`No se pudo guardar (HTTP ${putRes.status})`);
+    const json=await res.json();
+    if(!res.ok)throw new Error(json.error||`HTTP ${res.status}`);
     msgEl.innerHTML='<span style="color:var(--teal)">✅ Reporte enviado — el admin lo va a revisar.</span>';
     toast('Reporte enviado, pendiente de aprobación');
     repSlotsA=[''];repSlotsB=[''];repFfaTeams=[[''],['']];repFfaWinnerIdx=0;repWinner='A';
