@@ -523,6 +523,20 @@ function winProb(a,b){return 1/(1+Math.pow(10,(b-a)/400));}
 function getK(elo){return elo<800?40:elo<1200?25:12;}
 
 // ══════════════════════════════════════════
+//  TABS
+// ══════════════════════════════════════════
+function showTab(tabName){
+  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+  document.querySelectorAll('.panel').forEach(p=>p.classList.remove('active'));
+  const tabs=['leaderboard','history','overview','compare','tournaments','report'];
+  const idx=tabs.indexOf(tabName);
+  if(idx>=0){
+    document.querySelectorAll('.tab')[idx].classList.add('active');
+    document.getElementById('panel-'+tabName).classList.add('active');
+  }
+}
+
+// ══════════════════════════════════════════
 //  RENDER ALL
 // ══════════════════════════════════════════
 function renderAll(){
