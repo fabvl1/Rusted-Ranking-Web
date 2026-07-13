@@ -1380,14 +1380,31 @@ function allChosenFfa(){return repFfaTeams.flat().filter(Boolean);}
 function renderRepFfa(){
   const grid=document.getElementById('repFfaGrid');
   if(!grid)return;
-  grid.innerHTML=repFfaTeams.map((team,ti)=>`
+  const n=repFfaTeams.length;
+  const filled=repFfaTeams.map(t=>t.filter(Boolean));
+  repFfaDeathOrder=repFfaDeathOrder.filter(i=>i<n&&filled[i]&&filled[i].length);
+  const aliveIdx=repFfaTeams.map((_,i)=>i).filter(i=>filled[i].length&&!repFfaDeathOrder.includes(i));
+  const ready=repFfaDeathOrder.length===n-1&&aliveIdx.length===1;
+ 
+  grid.innerHTML=repFfaTeams.map((team,ti)=>{
+    const deathPos=repFfaDeathOrder.indexOf(ti);
+    const isDead=deathPos>=0;
+    const place=isDead?(n-deathPos):(ready&&aliveIdx[0]===ti?1:null);
+    let badge='';
+    if(isDead)badge=`<span style="font-size:11px;color:var(--muted);font-weight:700">☠ ${place}° puesto</span>`;
+    else if(place===1)badge=`<span style="font-size:11px;color:var(--green);font-weight:700">🏆 1er puesto</span>`;
+    return`
     <div class="team-card">
-      <div class="team-header" style="cursor:pointer" onclick="repSetFfaWinner(${ti})"><div class="team-name">Equipo ${ti+1}</div>${ti===repFfaWinnerIdx?'<span style="font-size:11px;color:var(--green);font-weight:700">🏆 Ganó</span>':''}</div>
+      <div class="team-header" style="cursor:${isDead||place===1?'default':'pointer'}" onclick="${isDead||place===1?'':`repMarkFfaDead(${ti})`}">
+        <div class="team-name">Equipo ${ti+1}</div>${badge}
+      </div>
       <div class="team-body">
         <div id="repFfaSlots${ti}"></div>
         <button class="add-slot-btn" id="repFfaAdd${ti}">+ agregar jugador</button>
       </div>
-    </div>`).join('');
+    </div>`;
+  }).join('');
+ 
   const allChosen=allChosenFfa();
   repFfaTeams.forEach((team,ti)=>{
     const c=document.getElementById(`repFfaSlots${ti}`);
@@ -1399,6 +1416,28 @@ function renderRepFfa(){
     const addBtn=document.getElementById(`repFfaAdd${ti}`);
     addBtn.onclick=()=>{repFfaTeams[ti].push('');renderReportForm();};
   });
+ 
+  // Barra de estado / deshacer, debajo del grid
+  let bar=document.getElementById('repFfaOrderBar');
+  if(!bar){
+    bar=document.createElement('div');
+    bar.id='repFfaOrderBar';
+    bar.style.marginTop='8px';
+    grid.after(bar);
+  }
+  bar.innerHTML=`
+    <div style="font-size:11px;color:var(--muted);margin-bottom:8px">☠ Tocá cada equipo en el orden en que fue muriendo. El último que queda vivo es el 1er puesto.</div>
+    ${repFfaDeathOrder.length?`<button type="button" class="btn btn-sm" onclick="repUndoFfaDeath()">↩ Deshacer último</button>`:''}
+    <div style="font-size:11px;color:${ready?'var(--teal)':'var(--muted)'};margin-top:6px">${ready?'✅ Orden completo — ya podés enviar el reporte.':`Faltan marcar ${Math.max(0,n-1-repFfaDeathOrder.length)} equipo(s).`}</div>`;
+}
+function repMarkFfaDead(idx){
+  if(repFfaDeathOrder.includes(idx))return;
+  repFfaDeathOrder.push(idx);
+  renderReportForm();
+}
+function repUndoFfaDeath(){
+  repFfaDeathOrder.pop();
+  renderReportForm();
 }
 function repFfaUpdateSlot(ti,si,val){repFfaTeams[ti][si]=val;}
 function repFfaRemoveSlot(ti,si){
@@ -1430,7 +1469,11 @@ async function submitResult(){
     if(teams.some(t=>!t.length)||teams.length<2){msgEl.innerHTML='<span style="color:var(--red)">Completá al menos un jugador por equipo.</span>';return;}
     const allNames=teams.flat();
     if(new Set(allNames).size!==allNames.length){msgEl.innerHTML='<span style="color:var(--red)">No repitas el mismo jugador en dos equipos.</span>';return;}
-    payload={mode:'ffa',teams,winnerIdx:repFfaWinnerIdx,note};
+    const n=teams.length;
+    const aliveIdx=teams.map((_,i)=>i).filter(i=>!repFfaDeathOrder.includes(i));
+    if(repFfaDeathOrder.length!==n-1||aliveIdx.length!==1){msgEl.innerHTML='<span style="color:var(--red)">Marcá el orden de muerte de todos los equipos menos el que ganó.</span>';return;}
+    const order=[aliveIdx[0],...[...repFfaDeathOrder].reverse()];
+    payload={mode:'ffa',teams,order,winnerIdx:order[0],note};
   }else{
     const teamA=repSlotsA.filter(Boolean),teamB=repSlotsB.filter(Boolean);
     if(!teamA.length||!teamB.length){msgEl.innerHTML='<span style="color:var(--red)">Completá los dos equipos.</span>';return;}
@@ -1458,7 +1501,7 @@ async function submitResult(){
     if(!putRes.ok)throw new Error(`No se pudo guardar (HTTP ${putRes.status})`);
     msgEl.innerHTML='<span style="color:var(--teal)">✅ Reporte enviado — el admin lo va a revisar.</span>';
     toast('Reporte enviado, pendiente de aprobación');
-    repSlotsA=[''];repSlotsB=[''];repFfaTeams=[[''],['']];repFfaWinnerIdx=0;repWinner='A';
+    repSlotsA=[''];repSlotsB=[''];repFfaTeams=[[''],['']];repFfaDeathOrder=[];repWinner='A';
     window._repNote='';
   }catch(e){
     msgEl.innerHTML=`<span style="color:var(--red)">No se pudo enviar: ${e.message}</span>`;
