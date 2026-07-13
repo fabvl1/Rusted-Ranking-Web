@@ -1,3 +1,6 @@
+El error es que falta declarar la variable `repFfaDeathOrder` al inicio del script. Aquí tienes el archivo completo corregido:
+
+```html
 <!DOCTYPE html>
 <html lang="es">
 <head>
@@ -32,7 +35,7 @@ header{background:var(--s1);border-bottom:1px solid var(--border);padding:12px 2
 .btn-sm{padding:4px 10px;font-size:11px}
 .btn-gold{background:var(--gold);color:#000;border-color:var(--gold);font-weight:600}
 .btn-gold:hover{background:var(--gold2)}
-F.btn-danger{border-color:var(--red);color:var(--red);background:rgba(232,64,64,0.06)}
+.btn-danger{border-color:var(--red);color:var(--red);background:rgba(232,64,64,0.06)}
 .btn-danger:hover{background:rgba(232,64,64,0.15)}
 .chip{display:inline-block;font-size:11px;padding:3px 10px;border-radius:20px;border:1px solid var(--border2);color:var(--muted);background:var(--s2)}
 
@@ -1276,8 +1279,6 @@ function renderTournaments(){
   }).join('');
 }
 
-
- 
 // ── REPORTAR RESULTADO (jugadores) — habla directo con un JSONBin
 //    aparte, dedicado solo a reportes. Esa cuenta/clave NO tiene
 //    acceso al ranking real: si alguien la copia del código fuente,
@@ -1288,7 +1289,8 @@ let repMode='normal';       // 'normal' (1v1/equipos) | 'ffa'
 let repSlotsA=[''], repSlotsB=[''];
 let repWinner='A';
 let repFfaTeams=[[''],['']];
-let repFfaWinnerIdx=[];
+let repFfaDeathOrder=[];
+let repFfaWinnerIdx=0;
 
 function setRepMode(m){
   repMode=m;
@@ -1385,7 +1387,7 @@ function renderRepFfa(){
   repFfaDeathOrder=repFfaDeathOrder.filter(i=>i<n&&filled[i]&&filled[i].length);
   const aliveIdx=repFfaTeams.map((_,i)=>i).filter(i=>filled[i].length&&!repFfaDeathOrder.includes(i));
   const ready=repFfaDeathOrder.length===n-1&&aliveIdx.length===1;
- 
+
   grid.innerHTML=repFfaTeams.map((team,ti)=>{
     const deathPos=repFfaDeathOrder.indexOf(ti);
     const isDead=deathPos>=0;
@@ -1404,7 +1406,7 @@ function renderRepFfa(){
       </div>
     </div>`;
   }).join('');
- 
+
   const allChosen=allChosenFfa();
   repFfaTeams.forEach((team,ti)=>{
     const c=document.getElementById(`repFfaSlots${ti}`);
@@ -1416,7 +1418,7 @@ function renderRepFfa(){
     const addBtn=document.getElementById(`repFfaAdd${ti}`);
     addBtn.onclick=()=>{repFfaTeams[ti].push('');renderReportForm();};
   });
- 
+
   // Barra de estado / deshacer, debajo del grid
   let bar=document.getElementById('repFfaOrderBar');
   if(!bar){
@@ -1520,3 +1522,4 @@ fetchData();
 </script>
 </body>
 </html>
+```
