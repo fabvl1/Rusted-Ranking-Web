@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0"
 <title>ELO Vainilla — Rankings</title>
 <link rel="icon" href="image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🏆</text></svg>">
 <style>
@@ -1237,13 +1237,67 @@ function openPlayer(name){
 }
 function closeModal(e){if(e.target===document.getElementById('modalOverlay'))document.getElementById('modalOverlay').classList.add('hidden');}
 
-// ── TORNEOS (solo lectura para el público) ─
-function bracketRoundLabel(totalRounds,roundIdx){
-  const remaining=totalRounds-roundIdx;
-  if(remaining===1)return'Final';
-  if(remaining===2)return'Semifinal';
-  if(remaining===3)return'Cuartos de final';
-  return`Ronda ${roundIdx+1}`;
+
+function roundLabel(total,idx){
+  const rem=total-idx;
+  if(rem===1)return'Final';
+  if(rem===2)return'Semifinal';
+  if(rem===3)return'Cuartos de final';
+  return`Ronda ${idx+1}`;
+}
+function teamName(t,idx){return idx==null?null:(t.teams[idx]||[]).join(' + ');}
+function standingsFor(teamIdxs,matches){
+  const wins={};teamIdxs.forEach(i=>wins[i]=0);
+  matches.forEach(m=>{if(m.winner!=null)wins[m.winner]=(wins[m.winner]||0)+1;});
+  return[...teamIdxs].sort((a,b)=>(wins[b]||0)-(wins[a]||0)).map(i=>({teamIdx:i,wins:wins[i]||0,played:matches.filter(m=>(m.a===i||m.b===i)&&m.winner!=null).length}));
+}
+function elimBracketHtmlPublic(t,rounds){
+  const total=rounds.length;
+  return rounds.map((round,ri)=>`
+    <div style="min-width:220px">
+      <div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px">${roundLabel(total,ri)}</div>
+      ${round.map(m=>`
+        <div style="background:var(--s1);border:1px solid var(--border);border-radius:8px;padding:8px 10px;margin-bottom:10px">
+          ${['a','b'].map(k=>{
+            const idx=m[k];
+            if(idx==null)return`<div style="padding:3px 0;color:var(--muted);font-size:11px">— bye —</div>`;
+            const isWinner=m.winner===idx;
+            return`<div style="display:flex;justify-content:space-between;padding:2px 0;${isWinner?'color:var(--green);font-weight:700':''}">${teamName(t,idx)}${isWinner?' 🏆':''}</div>`;
+          }).join('')}
+        </div>`).join('')}
+    </div>`).join('');
+}
+function standingsTableHtmlPublic(t,teamIdxs,matches,qualifyCount){
+  const standings=standingsFor(teamIdxs,matches);
+  return`<table class="lb-table" style="margin-bottom:10px;min-width:280px"><thead><tr><th>#</th><th>Equipo</th><th>PJ</th><th>PG</th></tr></thead><tbody>
+    ${standings.map((s,i)=>`<tr style="${qualifyCount&&i<qualifyCount?'background:rgba(62,207,136,0.06)':''}"><td>${i+1}</td><td>${teamName(t,s.teamIdx)}</td><td>${s.played}</td><td>${s.wins}</td></tr>`).join('')}
+  </tbody></table>`;
+}
+function matchRowHtmlPublic(t,m){
+  return`<div style="display:flex;justify-content:space-between;align-items:center;background:var(--s1);border:1px solid var(--border);border-radius:8px;padding:7px 10px;margin-bottom:7px;flex-wrap:wrap;gap:8px;font-size:12px">
+    <span>${m.winner===m.a?'<strong style="color:var(--green)">':''}${teamName(t,m.a)}${m.winner===m.a?' 🏆</strong>':''} <span style="color:var(--muted)">vs</span> ${m.winner===m.b?'<strong style="color:var(--green)">':''}${teamName(t,m.b)}${m.winner===m.b?' 🏆</strong>':''}</span>
+    ${m.winner==null?'<span style="font-size:10px;color:var(--muted)">Pendiente</span>':''}
+  </div>`;
+}
+function leagueHtmlPublic(t){
+  return standingsTableHtmlPublic(t,t.teams.map((_,i)=>i),t.matches)+t.matches.map(m=>matchRowHtmlPublic(t,m)).join('');
+}
+function groupsHtmlPublic(t){
+  let html=t.groups.map((g,gi)=>{
+    const gMatches=t.groupMatches.filter(m=>m.group===gi);
+    return`<div style="background:var(--s2);border:1px solid var(--border);border-radius:10px;padding:12px;margin-bottom:12px">
+      <div style="font-size:12px;font-weight:700;color:var(--gold);margin-bottom:8px">Grupo ${gi+1}</div>
+      ${standingsTableHtmlPublic(t,g,gMatches,t.qualifyPerGroup)}
+      ${gMatches.map(m=>matchRowHtmlPublic(t,m)).join('')}
+    </div>`;
+  }).join('');
+  if(t.knockout){
+    html+=`<div style="font-size:13px;font-weight:700;margin:16px 0 10px">🏆 Fase eliminatoria</div>
+      <div style="display:flex;gap:16px;overflow-x:auto;padding-bottom:6px">${elimBracketHtmlPublic(t,t.knockout.rounds)}</div>`;
+  }else{
+    html+=`<div style="font-size:11px;color:var(--muted);margin-top:8px">La fase eliminatoria se arma cuando termine la fase de grupos.</div>`;
+  }
+  return html;
 }
 function renderTournaments(){
   if(!data)return;
@@ -1253,27 +1307,41 @@ function renderTournaments(){
     el.innerHTML=`<div class="center-msg"><div class="icon">🏅</div><div class="title">Todavía no hay torneos</div><div class="sub">El admin puede crear uno desde el panel de administración.</div></div>`;
     return;
   }
+  const fmtLabel={elim:'Eliminación directa',league:'Liga (todos contra todos)',groups:'Fase de grupos + Eliminación'};
   el.innerHTML=list.map(t=>{
-    const totalRounds=(t.rounds||[]).length;
-    const bracketHtml=(t.rounds||[]).map((round,ri)=>`
-      <div style="min-width:200px">
-        <div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px">${bracketRoundLabel(totalRounds,ri)}</div>
-        ${round.map(m=>`
-          <div style="background:var(--s1);border:1px solid var(--border);border-radius:8px;padding:8px 10px;margin-bottom:10px">
-            <div style="display:flex;justify-content:space-between;padding:2px 0;${m.winner===m.p1?'color:var(--green);font-weight:700':''}">${m.p1?flag(data.roster.find(r=>r.name===m.p1)?.country||'?')+' '+m.p1:'<span style="color:var(--muted)">— bye —</span>'}</div>
-            <div style="display:flex;justify-content:space-between;padding:2px 0;${m.winner===m.p2?'color:var(--green);font-weight:700':''}">${m.p2?flag(data.roster.find(r=>r.name===m.p2)?.country||'?')+' '+m.p2:'<span style="color:var(--muted)">— bye —</span>'}</div>
-          </div>`).join('')}
-      </div>`).join('');
+    // Compatibilidad con torneos viejos (formato de eliminación simple sin 'teams'/'format')
+    if(!t.format){
+      const total=(t.rounds||[]).length;
+      const bracketHtml=(t.rounds||[]).map((round,ri)=>`
+        <div style="min-width:200px">
+          <div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px">${roundLabel(total,ri)}</div>
+          ${round.map(m=>`
+            <div style="background:var(--s1);border:1px solid var(--border);border-radius:8px;padding:8px 10px;margin-bottom:10px">
+              <div style="display:flex;justify-content:space-between;padding:2px 0;${m.winner===m.p1?'color:var(--green);font-weight:700':''}">${m.p1||'<span style="color:var(--muted)">— bye —</span>'}</div>
+              <div style="display:flex;justify-content:space-between;padding:2px 0;${m.winner===m.p2?'color:var(--green);font-weight:700':''}">${m.p2||'<span style="color:var(--muted)">— bye —</span>'}</div>
+            </div>`).join('')}
+        </div>`).join('');
+      return`<div style="background:var(--s1);border:1px solid var(--border);border-radius:12px;padding:16px 18px;margin-bottom:18px">
+        <div style="font-size:15px;font-weight:700;margin-bottom:10px">${t.name}</div>
+        <div style="display:flex;gap:16px;overflow-x:auto;padding-bottom:6px">${bracketHtml}</div>
+      </div>`;
+    }
+    let body;
+    if(t.format==='league')body=leagueHtmlPublic(t);
+    else if(t.format==='groups')body=groupsHtmlPublic(t);
+    else body=`<div style="display:flex;gap:16px;overflow-x:auto;padding-bottom:6px">${elimBracketHtmlPublic(t,t.rounds)}</div>`;
     return`<div style="background:var(--s1);border:1px solid var(--border);border-radius:12px;padding:16px 18px;margin-bottom:18px">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;flex-wrap:wrap;gap:6px">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;flex-wrap:wrap;gap:6px">
         <div style="font-size:15px;font-weight:700">${t.name}</div>
-        <span class="chip ${t.status==='finished'?'':''}" style="${t.status==='finished'?'border-color:var(--gold);color:var(--gold)':''}">${t.status==='finished'?'🏆 Finalizado':t.status==='in_progress'?'▶ En curso':'⏳ Por comenzar'}</span>
+        <span class="chip" style="${t.status==='finished'?'border-color:var(--gold);color:var(--gold)':''}">${t.status==='finished'?'🏆 Finalizado':'▶ En curso'}</span>
       </div>
-      ${t.champion?`<div style="margin-bottom:12px;font-size:13px">🏆 Campeón: <strong style="color:var(--gold)">${flag(data.roster.find(r=>r.name===t.champion)?.country||'?')} ${t.champion}</strong></div>`:''}
-      <div style="display:flex;gap:16px;overflow-x:auto;padding-bottom:6px">${bracketHtml||'<span style="color:var(--muted);font-size:12px">Bracket sin generar todavía.</span>'}</div>
+      <div style="font-size:11px;color:var(--muted);margin-bottom:12px">${fmtLabel[t.format]||t.format} · equipos de ${t.teamSize} · ${t.teams.length} equipos</div>
+      ${t.champion!=null?`<div style="margin-bottom:12px;font-size:13px">🏆 Campeón: <strong style="color:var(--gold)">${teamName(t,t.champion)}</strong></div>`:''}
+      ${body}
     </div>`;
   }).join('');
 }
+ 
 
 // ── REPORTAR RESULTADO (jugadores) — habla directo con un JSONBin
 //    aparte, dedicado solo a reportes. Esa cuenta/clave NO tiene
