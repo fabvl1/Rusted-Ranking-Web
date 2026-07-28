@@ -414,23 +414,17 @@ let refreshTimer = null;
 //  CONFIGURACION GITHUB GIST (hardcodeada)
 // ═══════════════════════════════════════════════════════
 const GIST_ID = '8634a68273543e12ecefc85b03506c12';
-const GITHUB_TOKEN = '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';
 
 // ═══════════════════════════════════════════════════════
 //  CARGAR DATOS DESDE GITHUB GIST
 // ═══════════════════════════════════════════════════════
 async function loadPublicData() {
   try {
-    const headers = {
-      'Accept': 'application/vnd.github.v3+json'
-    };
-
-    if (GITHUB_TOKEN) {
-      headers['Authorization'] = `token ${GITHUB_TOKEN}`;
-    }
-
+    // Para lectura de Gists públicos no se requiere autenticación
     const res = await fetch(`https://api.github.com/gists/${GIST_ID}`, {
-      headers,
+      headers: {
+        'Accept': 'application/vnd.github.v3+json'
+      },
       cache: 'no-store'
     });
 
