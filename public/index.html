@@ -32,13 +32,10 @@ header{background:var(--s1);border-bottom:1px solid var(--border);padding:12px 2
 .btn-sm{padding:4px 10px;font-size:11px}
 .btn-gold{background:var(--gold);color:#000;border-color:var(--gold);font-weight:600}
 .btn-gold:hover{background:var(--gold2)}
-<<<<<<< Updated upstream
 .btn-whatsapp{background:#25D366;color:#fff;border-color:#25D366;font-weight:600}
 .btn-whatsapp:hover{background:#1da851;border-color:#1da851}
-=======
 .btn-danger{border-color:var(--red);color:var(--red);background:rgba(232,64,64,0.06)}
 .btn-danger:hover{background:rgba(232,64,64,0.15)}
->>>>>>> Stashed changes
 .chip{display:inline-block;font-size:11px;padding:3px 10px;border-radius:20px;border:1px solid var(--border2);color:var(--muted);background:var(--s2)}
 
 /* TABS */
@@ -313,10 +310,9 @@ canvas.compare-chart{width:100%;height:160px;display:block}
 
 <script>
 // ═══════════════════════════════════════════════════════
-//  CONFIGURACIÓN GITHUB GIST (hardcodeada)
+//  CONFIGURACIÓN GITHUB GIST
 // ═══════════════════════════════════════════════════════
 const GIST_ID = '8634a68273543e12ecefc85b03506c12';
-const GITHUB_TOKEN = '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';
 const REPORTS_GIST_ID = '2314c838396a6758fecf1fd3c5396459';
 
 // ══════════════════════════════════════════
@@ -415,42 +411,33 @@ let repFfaTeams=[[''],['']];
 let repFfaDeathOrder=[];
 
 // ═══════════════════════════════════════════════════════
-//  CARGAR DATOS DESDE GITHUB GIST
+//  CARGAR DATOS DESDE GITHUB GIST (público, sin token)
 // ═══════════════════════════════════════════════════════
 async function loadPublicData() {
-  try {
-    const headers = {
-      'Accept': 'application/vnd.github.v3+json',
-      'Authorization': `token ${GITHUB_TOKEN}`
-    };
+  const sources = [
+    '/api/ranking',
+    `https://api.github.com/gists/${GIST_ID}`
+  ];
 
-    const res = await fetch(`https://api.github.com/gists/${GIST_ID}`, {
-      headers,
-      cache: 'no-store'
-    });
-
-    if (!res.ok) {
-      throw new Error(`HTTP ${res.status}: ${res.statusText}`);
+  let lastError = null;
+  for (const url of sources) {
+    try {
+      const res = await fetch(url, { cache: 'no-store' });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const json = await res.json();
+      if (json.files) {
+        const files = json.files || {};
+        const jsonFile = Object.values(files).find(f => f.filename && f.filename.endsWith('.json'));
+        if (!jsonFile) throw new Error('No se encontró .json en el gist');
+        return JSON.parse(jsonFile.content);
+      }
+      if (json.error) throw new Error(json.error);
+      return json.record || json;
+    } catch (err) {
+      lastError = err;
     }
-
-    const gistData = await res.json();
-    const files = gistData.files || {};
-    const jsonFile = Object.values(files).find(f =>
-      f.filename && f.filename.endsWith('.json')
-    );
-
-    if (!jsonFile) {
-      throw new Error('No se encontró archivo .json en el gist');
-    }
-
-    const content = JSON.parse(jsonFile.content);
-    console.log('✅ Datos cargados desde GitHub Gist');
-    return content;
-
-  } catch (error) {
-    console.error('❌ Error cargando desde GitHub:', error);
-    return null;
   }
+  throw lastError || new Error('No se pudieron obtener datos del Gist');
 }
 
 // ══════════════════════════════════════════
@@ -1343,21 +1330,7 @@ function renderTournaments(){
   }).join('');
 }
 
-<<<<<<< Updated upstream
-// ── REPORTAR RESULTADO ──────────────────
-=======
-// ── REPORTAR RESULTADO (jugadores) — habla directo con un JSONBin
-//    aparte, dedicado solo a reportes. Esa cuenta/clave NO tiene
-//    acceso al ranking real: si alguien la copia del código fuente,
-//    lo peor que puede hacer es mandar reportes falsos, que el admin
-//    igual revisa antes de aplicar. Por eso no hace falta backend.
-
-let repMode='normal';       // 'normal' (1v1/equipos) | 'ffa'
-let repSlotsA=[''], repSlotsB=[''];
-let repWinner='A';
-let repFfaTeams=[[''],['']];
-let repFfaDeathOrder=[];
-let repFfaWinnerIdx=0;
+// ── REPORTAR RESULTADO (jugadores) ──
 
 function setRepMode(m){
   repMode=m;
@@ -1366,8 +1339,6 @@ function setRepMode(m){
   document.getElementById('repNormalBlock').style.display=m==='normal'?'':'none';
   document.getElementById('repFfaBlock').style.display=m==='ffa'?'':'none';
 }
-
->>>>>>> Stashed changes
 function renderReportForm(){
   if(!data)return;
   const el=document.getElementById('reportContent');
@@ -1487,10 +1458,7 @@ function renderRepFfa(){
     addBtn.onclick=()=>{repFfaTeams[ti].push('');renderReportForm();};
   });
 
-<<<<<<< Updated upstream
-=======
   // Barra de estado / deshacer, debajo del grid
->>>>>>> Stashed changes
   let bar=document.getElementById('repFfaOrderBar');
   if(!bar){
     bar=document.createElement('div');
@@ -1528,10 +1496,7 @@ function repRemoveFfaTeam(){
   renderReportForm();
 }
 
-// ── BIN DE REPORTES ──────────────────────
-const REPORTS_BIN_ID = '2314c838396a6758fecf1fd3c5396459';
-const REPORTS_API_KEY = '$2a$10$Pjsn5e3CwWF7xsoN/xlSvOSwxEkdNCm0Hp6y9MU.G4dfOW5NDXfMO';
-
+// ── ENVÍO DE REPORTES ──────────────────────
 async function submitResult(){
   const note=document.getElementById('repNote').value.trim().slice(0,200);
   const msgEl=document.getElementById('repMsg');
@@ -1551,25 +1516,20 @@ async function submitResult(){
     if(!teamA.length||!teamB.length){msgEl.innerHTML='<span style="color:var(--red)">Completá los dos equipos.</span>';return;}
     const allNames=[...teamA,...teamB];
     if(new Set(allNames).size!==allNames.length){msgEl.innerHTML='<span style="color:var(--red)">No repitas el mismo jugador en los dos equipos.</span>';return;}
-    payload={mode:teamA.length>1||teamB.length>1?'team':'pvp',teamA,teamB,winner:repWinner,
-      playerA:teamA[0],playerB:teamB[0]};
+    const winnerName = repWinner === 'A' ? (teamA[0] || 'A') : (teamB[0] || 'B');
+    payload={mode:teamA.length>1||teamB.length>1?'team':'pvp',teamA,teamB,winner:winnerName,
+      playerA:teamA[0],playerB:teamB[0],note};
   }
   msgEl.innerHTML='<span style="color:var(--muted)">Enviando…</span>';
   try{
-    const headers={'Content-Type':'application/json','X-Master-Key':REPORTS_API_KEY};
-    const getRes=await fetch(`https://api.jsonbin.io/v3/b/${REPORTS_BIN_ID}/latest`,{headers,cache:'no-store'});
-    if(!getRes.ok)throw new Error(`No se pudo leer (HTTP ${getRes.status})`);
-    const getJson=await getRes.json();
-    const record=getJson.record||{};
-    record.reports=Array.isArray(record.reports)?record.reports:[];
-    record.reports.push({
-      id:'r_'+Date.now().toString(36)+Math.random().toString(36).slice(2,8),
-      submittedAt:Date.now(),status:'pending',
-      ...payload
+    const res = await fetch('/api/report-user', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify(payload)
     });
-    if(record.reports.length>500)record.reports=record.reports.slice(record.reports.length-500);
-    const putRes=await fetch(`https://api.jsonbin.io/v3/b/${REPORTS_BIN_ID}`,{method:'PUT',headers,body:JSON.stringify(record)});
-    if(!putRes.ok)throw new Error(`No se pudo guardar (HTTP ${putRes.status})`);
+    const resJson = await res.json().catch(() => ({}));
+    if(!res.ok) throw new Error(resJson.error || `HTTP ${res.status}`);
+
     msgEl.innerHTML='<span style="color:var(--teal)">✅ Reporte enviado — el admin lo va a revisar.</span>';
     toast('Reporte enviado, pendiente de aprobación');
     repSlotsA=[''];repSlotsB=[''];repFfaTeams=[[''],['']];repFfaDeathOrder=[];repWinner='A';

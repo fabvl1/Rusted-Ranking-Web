@@ -9,5 +9,11 @@
   "assets": {
     "directory": "./public",
     "binding": "ASSETS"
-  }
+  },
+  // Variables de entorno — configurar en Cloudflare Dashboard > Workers > Settings > Variables
+  // "vars": {
+  //   "GITHUB_GIST_ID": "8634a68273543e12ecefc85b03506c12",
+  //   "GITHUB_REPORTS_GIST_ID": "2314c838396a6758fecf1fd3c5396459",
+  //   "GITHUB_TOKEN": "ghp_tu_token_aqui"
+  // }
 }
