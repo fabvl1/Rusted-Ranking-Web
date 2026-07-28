@@ -343,12 +343,16 @@ const ALL_COUNTRIES = [
   ['SK','🇸🇰','Eslovaquia'],['BG','🇧🇬','Bulgaria'],['HR','🇭🇷','Croacia'],['RS','🇷🇸','Serbia'],
   ['IE','🇮🇪','Irlanda'],['IS','🇮🇸','Islandia'],['LT','🇱🇹','Lituania'],['LV','🇱🇻','Letonia'],
   ['EE','🇪🇪','Estonia'],['BY','🇧🇾','Bielorrusia'],['KZ','🇰🇿','Kazajistán'],['MA','🇲🇦','Marruecos'],
-  ['TW','🇹🇼','Taiwán'],['HK','🇭🇰','Hong Kong'],['BD','🇧🇩','Bangladés'],['TN','🇹🇳','Túnez'],
+  ['TW','🇹🇼','Taiwán'],['HK','🇭🇰','Hong Kong'],['BD','🇧🇩','Bangladés'],['TN','🇹🇳','Túnez'], ['XT','🏳️‍⚧️','Transilvania'],
 ];
 const COUNTRY_MAP = Object.fromEntries(ALL_COUNTRIES.map(([c,f,n])=>[c,[f,n]]));
-function flag(code,sz){if(!code||!COUNTRY_MAP[code])return'';const s=sz||16;return`<img src="https://flagcdn.com/${s}x${Math.round(s*0.75)}/${code.toLowerCase()}.png" width="${s}" height="${Math.round(s*0.75)}" alt="${code}" style="border-radius:2px;vertical-align:middle;display:inline-block">`;}
-function countryName(code){return code&&COUNTRY_MAP[code]?COUNTRY_MAP[code][1]:'';}
-
+const CUSTOM_FLAG_CODES = new Set(['XT']); // banderas que no son de un país ISO real, se muestran como emoji
+function flag(code,sz){
+  if(!code||!COUNTRY_MAP[code])return'';
+  const s=sz||16;
+  if(CUSTOM_FLAG_CODES.has(code))return`<span style="font-size:${s}px;line-height:1;vertical-align:middle;display:inline-block">${COUNTRY_MAP[code][0]}</span>`;
+  return`<img src="https://flagcdn.com/${s}x${Math.round(s*0.75)}/${code.toLowerCase()}.png" width="${s}" height="${Math.round(s*0.75)}" alt="${code}" style="border-radius:2px;vertical-align:middle;display:inline-block">`;
+}
 // ══════════════════════════════════════════
 //  GEOGRAFÍA (continente / región) — para el filtro regional del ranking
 // ══════════════════════════════════════════
@@ -392,7 +396,7 @@ const CONTINENT_MAP = {
   DZ:['África','África del Norte'],
   ZA:['África','África Subsahariana'],NG:['África','África Subsahariana'],KE:['África','África Subsahariana'],
   GH:['África','África Subsahariana'],
-  AU:['Oceanía','Oceanía'],NZ:['Oceanía','Oceanía'],
+  AU:['Oceanía','Oceanía'],NZ:['Oceanía','Oceanía'],XT:['Europa','Europa del Este'],
 };
 function geoOf(code){return CONTINENT_MAP[code]||[null,null];}
 
