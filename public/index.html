@@ -1497,7 +1497,8 @@ async function readGist(gistId) {
 }
 
 async function writeGist(gistId, content) {
-  if (!REPORTS_GIST_TOKEN) throw new Error('REPORTS_GIST_TOKEN no está configurado');
+  const token = getReportsToken();
+  if (!token) throw new Error('REPORTS_GIST_TOKEN no está configurado');
   const getRes = await fetch(`https://api.github.com/gists/${gistId}`, { cache: 'no-store' });
   if (!getRes.ok) throw new Error(`HTTP ${getRes.status}`);
   const data = await getRes.json();
@@ -1507,7 +1508,7 @@ async function writeGist(gistId, content) {
     headers: {
       'Accept': 'application/vnd.github.v3+json',
       'Content-Type': 'application/json',
-      'Authorization': `token ${REPORTS_GIST_TOKEN}`
+      'Authorization': `token ${token}`
     },
     body: JSON.stringify({ files: { [filename]: { content: JSON.stringify(content, null, 2) } } })
   });
