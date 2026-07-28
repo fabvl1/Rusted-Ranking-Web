@@ -347,6 +347,7 @@ const ALL_COUNTRIES = [
 ];
 const COUNTRY_MAP = Object.fromEntries(ALL_COUNTRIES.map(([c,f,n])=>[c,[f,n]]));
 const CUSTOM_FLAG_CODES = new Set(['XT']); // banderas que no son de un país ISO real, se muestran como emoji
+function countryName(code){return COUNTRY_MAP[code]?COUNTRY_MAP[code][1]:'';}
 function flag(code,sz){
   if(!code||!COUNTRY_MAP[code])return'';
   const s=sz||16;
