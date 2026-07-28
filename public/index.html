@@ -140,6 +140,8 @@ table.lb-table tr:hover td{background:rgba(255,255,255,0.015);cursor:pointer}
 .mstat-val{font-family:var(--mono);font-size:18px;font-weight:600;margin-bottom:2px}
 .mstat-lbl{font-size:10px;color:var(--muted)}
 .modal-section-title{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;font-family:var(--mono);margin-bottom:8px;margin-top:14px}
+.achievement{display:inline-block;padding:3px 9px;border-radius:6px;font-size:11px;background:var(--s2);border:1px solid var(--border);color:var(--muted);margin:2px;cursor:default;opacity:.5}
+.achievement.earned{opacity:1;background:rgba(62,207,136,0.08);border-color:rgba(62,207,136,0.2);color:var(--text)}
 .wbar-row{display:flex;align-items:center;gap:8px;margin-bottom:6px}
 .wbar-label{font-size:11px;min-width:80px;color:var(--muted)}
 .wbar-track{flex:1;height:7px;background:var(--border);border-radius:4px;overflow:hidden}
@@ -484,7 +486,8 @@ function showError(html){
 //  HELPERS
 // ══════════════════════════════════════════
 function getRank(elo){
-  if(elo>=2200)return{label:'SS',bg:'rgba(232,64,64,0.15)',color:'#e04848'};
+  if(elo>=2100)return{label:'SSS',bg:'rgba(255,77,0,0.18)',color:'#ff4d00'};
+  if(elo>=2000)return{label:'SS',bg:'rgba(232,64,64,0.18)',color:'#e04848'};
   if(elo>=1900)return{label:'S',bg:'rgba(212,168,67,0.15)',color:'#d4a843'};
   if(elo>=1650)return{label:'A',bg:'rgba(62,207,136,0.12)',color:'#3ecf88'};
   if(elo>=1500)return{label:'B',bg:'rgba(78,181,255,0.12)',color:'#4eb5ff'};
@@ -492,6 +495,48 @@ function getRank(elo){
   if(elo>=1150)return{label:'D',bg:'rgba(100,100,120,0.2)',color:'#888899'};
   if(elo>=900)return{label:'E',bg:'rgba(70,70,80,0.2)',color:'#606070'};
   return{label:'F',bg:'rgba(50,50,60,0.2)',color:'#404050'};
+}
+const ACHIEVEMENTS=[
+  {id:'debut',icon:'⚔',label:'Debutante',desc:'Primera partida',check:p=>p.partidas>=1},
+  {id:'vet',icon:'🎖',label:'Veterano',desc:'50 partidas',check:p=>p.partidas>=50},
+  {id:'leyenda',icon:'🏆',label:'Leyenda',desc:'100 partidas',check:p=>p.partidas>=100},
+  {id:'pvp5',icon:'🗡',label:'Duelista',desc:'5 victorias PVP',check:p=>(p.pvp_wins||0)>=5},
+  {id:'pvp10',icon:'⚡',label:'Maestro PVP',desc:'10 victorias PVP',check:p=>(p.pvp_wins||0)>=10},
+  {id:'team5',icon:'🛡',label:'Estratega',desc:'5 victorias en equipo',check:p=>(p.team_wins||0)>=5},
+  {id:'team10',icon:'🏰',label:'Comandante',desc:'10 victorias en equipo',check:p=>(p.team_wins||0)>=10},
+  {id:'ffa1',icon:'👑',label:'Rey del FFA',desc:'Primera victoria FFA',check:p=>(p.ffa_wins||0)>=1},
+  {id:'ffa3',icon:'🌟',label:'Dominador FFA',desc:'3 victorias FFA',check:p=>(p.ffa_wins||0)>=3},
+  {id:'ffa10',icon:'💀',label:'Depredador',desc:'10 victorias FFA',check:p=>(p.ffa_wins||0)>=10},
+  {id:'streak5',icon:'🔥',label:'En llamas',desc:'Racha de 5 victorias',check:(p,name)=>getBestStreak(name)>=5},
+  {id:'streak10',icon:'💥',label:'Imparable',desc:'Racha de 10 victorias',check:(p,name)=>getBestStreak(name)>=10},
+  {id:'streak20',icon:'🌀',label:'Imbatible',desc:'Racha de 20 victorias',check:(p,name)=>getBestStreak(name)>=20},
+  {id:'allmode',icon:'🎯',label:'Todo Terreno',desc:'Victorias en los 3 modos',check:p=>(p.pvp_wins||0)>=1&&(p.team_wins||0)>=1&&(p.ffa_wins||0)>=1},
+  {id:'top',icon:'🥇',label:'Líder',desc:'#1 en algún ranking',check:(p,name)=>isTopPlayer(name)},
+  {id:'dioses',icon:'⚡',label:'Asesino de dioses',desc:'Vencer a Mehmet en 1vs1',check:(p,name)=>(data.history||[]).some(h=>{
+    const inA=(h.teamA||[]).includes(name),inB=(h.teamB||[]).includes(name);
+    if(!inA&&!inB)return false;
+    if((h.teamA||[]).length!==1||(h.teamB||[]).length!==1)return false;
+    const won=didWin(name,h);
+    const rival=inA?(h.teamB||[])[0]:(h.teamA||[])[0];
+    return won&&rival==='Mehmet';
+  })},
+  {id:'inquebrantable',icon:'🛡',label:'Inquebrantable',desc:'15 derrotas en total',check:p=>(p.losses||0)>=15},
+  {id:'gloria',icon:'🌟',label:'Gloria Eterna',desc:'Alcanzar 2100 ELO',check:p=>(p.elo_general||0)>=2100},
+  {id:'comeback',icon:'🔄',label:'Resurgir',desc:'Bajar de 1300 y volver a 1600+',check:p=>{
+    if((p.elo_general||1500)<1600)return false;
+    const allSnaps=[...(p.pvp_hist||[]),...(p.team_hist||[]),...(p.ffa_hist||[])];
+    let minElo=1500,elo=1500;
+    allSnaps.forEach(s=>{elo+=s.delta;if(elo<minElo)minElo=elo;});
+    return minElo<1300;
+  }},
+];
+function isTopPlayer(name){
+  const roster=data.roster;
+  const byPvp=[...roster].sort((a,b)=>b.elo_pvp-a.elo_pvp);
+  const byTeam=[...roster].sort((a,b)=>b.elo_team-a.elo_team);
+  const byFfa=[...roster].sort((a,b)=>b.elo_ffa-a.elo_ffa);
+  const byGen=[...roster].sort((a,b)=>b.elo_general-a.elo_general);
+  return[byPvp,byTeam,byFfa,byGen].some(r=>r[0]?.name===name);
 }
 function initials(name){return name.replace(/[()]/g,'').split(/[\s_\-]+/).map(w=>w[0]||'').join('').toUpperCase().slice(0,2)||'?';}
 function getHistMode(h){const m=h.mode||h.type||'team';if(m==='teams'||m==='uneven')return'team';return m;}
@@ -1203,6 +1248,10 @@ function openPlayer(name){
       <div class="mstat"><div class="mstat-val" style="color:${streak?.won?'var(--green)':'var(--red)'}">${streak?`${streak.count}${streak.won?'🔥':'❄'}`:'-'}</div><div class="mstat-lbl">Racha actual</div></div>
       <div class="mstat"><div class="mstat-val" style="color:var(--green)">${bestStreak||'-'}</div><div class="mstat-lbl">Mejor racha</div></div>
       <div class="mstat"><div class="mstat-val" style="color:var(--green)">${bestGame?'+'+bestGame.delta:'—'}</div><div class="mstat-lbl">Mejor partida</div></div>
+    </div>
+    <div class="modal-section-title">Logros</div>
+    <div style="margin-bottom:14px;line-height:2">
+      ${ACHIEVEMENTS.map(a=>{const e=a.check(p,p.name);return`<span class="achievement ${e?'earned':''}" title="${a.desc}" onclick="toast('${a.desc.replace(/'/g,"\\'")}')">${a.icon} ${a.label}</span>`}).join('')}
     </div>
     ${rivals.length?`<div class="modal-section-title">Rivales frecuentes</div>
     <div style="display:flex;flex-direction:column;gap:5px">
