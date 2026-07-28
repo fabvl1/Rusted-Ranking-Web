@@ -418,17 +418,21 @@ let repFfaDeathOrder=[];
 //  CARGAR DATOS DESDE GITHUB GIST (público, sin token)
 // ═══════════════════════════════════════════════════════
 async function loadPublicData() {
-  try {
-    const res = await fetch(`https://api.github.com/gists/${GIST_ID}`, { cache: 'no-store' });
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    const gistData = await res.json();
-    const files = gistData.files || {};
-    const jsonFile = Object.values(files).find(f => f.filename && f.filename.endsWith('.json'));
-    if (!jsonFile) throw new Error('No se encontró .json en el gist');
-    return JSON.parse(jsonFile.content);
-  } catch (err) {
-    throw err;
-  }
+  const res = await fetch(`https://api.github.com/gists/${GIST_ID}`, { cache: 'no-store' });
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  const gistData = await res.json();
+  const files = gistData.files || {};
+  const get = name => {
+    const f = Object.values(files).find(f => f.filename === name);
+    return f ? JSON.parse(f.content) : null;
+  };
+  const stateFile = get('state.json');
+  if (stateFile) return stateFile;
+  const roster = get('roster.json');
+  const history = get('history.json');
+  const tournaments = get('tournaments.json');
+  if (!roster) throw new Error('No se encontraron datos en el gist');
+  return { roster: roster || [], history: history || [], tournaments: tournaments || [] };
 }
 
 // ══════════════════════════════════════════
