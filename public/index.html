@@ -140,8 +140,13 @@ table.lb-table tr:hover td{background:rgba(255,255,255,0.015);cursor:pointer}
 .mstat-val{font-family:var(--mono);font-size:18px;font-weight:600;margin-bottom:2px}
 .mstat-lbl{font-size:10px;color:var(--muted)}
 .modal-section-title{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;font-family:var(--mono);margin-bottom:8px;margin-top:14px}
-.achievement{display:inline-block;padding:3px 9px;border-radius:6px;font-size:11px;background:var(--s2);border:1px solid var(--border);color:var(--muted);margin:2px;cursor:default;opacity:.5}
+.achievement{display:inline-flex;align-items:center;gap:4px;background:var(--s3);border:1px solid var(--border2);border-radius:20px;padding:2px 8px;font-size:10px;color:var(--muted);margin:1px;cursor:pointer;transition:.15s}
+.achievement:hover{transform:scale(1.05);border-color:var(--text-muted)}
 .achievement.earned{opacity:1;background:rgba(62,207,136,0.08);border-color:rgba(62,207,136,0.2);color:var(--text)}
+.achievement.earned:hover{border-color:var(--green);box-shadow:0 0 8px rgba(62,207,136,0.3)}
+.ach-icon{font-size:12px}.ach-label{font-weight:500}.ach-pct{font-size:9px;opacity:.6;font-family:var(--mono);margin-left:2px}
+.ach-divider{font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin:8px 0 4px;padding-top:6px;border-top:1px dashed var(--border2);opacity:.5}
+.ach-section{display:flex;flex-wrap:wrap;gap:2px;margin-bottom:14px;align-items:flex-start}
 .wbar-row{display:flex;align-items:center;gap:8px;margin-bottom:6px}
 .wbar-label{font-size:11px;min-width:80px;color:var(--muted)}
 .wbar-track{flex:1;height:7px;background:var(--border);border-radius:4px;overflow:hidden}
@@ -521,6 +526,22 @@ const ACHIEVEMENTS=[
     return won&&rival==='Mehmet';
   })},
   {id:'inquebrantable',icon:'🛡',label:'Inquebrantable',desc:'15 derrotas en total',check:p=>(p.losses||0)>=15},
+  {id:'heroe1v2',icon:'💪',label:'Héroe (1vs2)',desc:'Ganar una partida en inferioridad numérica (1vs2)',check:(p,name)=>(data.history||[]).some(h=>{
+    const inA=(h.teamA||[]).includes(name),inB=(h.teamB||[]).includes(name);
+    if(!inA&&!inB)return false;
+    if(h.mode==='ffa'||h.type==='ffa')return false;
+    const myTeam=inA?h.teamA:h.teamB;
+    const theirTeam=inA?h.teamB:h.teamA;
+    return myTeam.length<theirTeam.length&&didWin(name,h);
+  })},
+  {id:'heroe1v3',icon:'🔥',label:'Leyenda (1vs3)',desc:'Ganar una partida 1vs3 o peor',check:(p,name)=>(data.history||[]).some(h=>{
+    const inA=(h.teamA||[]).includes(name),inB=(h.teamB||[]).includes(name);
+    if(!inA&&!inB)return false;
+    if(h.mode==='ffa'||h.type==='ffa')return false;
+    const myTeam=inA?h.teamA:h.teamB;
+    const theirTeam=inA?h.teamB:h.teamA;
+    return myTeam.length===1&&theirTeam.length>=3&&didWin(name,h);
+  })},
   {id:'gloria',icon:'🌟',label:'Gloria Eterna',desc:'Alcanzar 2100 ELO',check:p=>(p.elo_general||0)>=2100},
   {id:'comeback',icon:'🔄',label:'Resurgir',desc:'Bajar de 1300 y volver a 1600+',check:p=>{
     if((p.elo_general||1500)<1600)return false;
@@ -537,6 +558,15 @@ function isTopPlayer(name){
   const byFfa=[...roster].sort((a,b)=>b.elo_ffa-a.elo_ffa);
   const byGen=[...roster].sort((a,b)=>b.elo_general-a.elo_general);
   return[byPvp,byTeam,byFfa,byGen].some(r=>r[0]?.name===name);
+}
+function achievementStats(){
+  const total=data.roster.length;
+  const map={};
+  ACHIEVEMENTS.forEach(a=>{
+    const count=data.roster.filter(p=>{try{return a.check(p,p.name,data);}catch(e){return false;}}).length;
+    map[a.id]=total>0?Math.round(count/total*100):0;
+  });
+  return map;
 }
 function initials(name){return name.replace(/[()]/g,'').split(/[\s_\-]+/).map(w=>w[0]||'').join('').toUpperCase().slice(0,2)||'?';}
 function getHistMode(h){const m=h.mode||h.type||'team';if(m==='teams'||m==='uneven')return'team';return m;}
@@ -1250,8 +1280,17 @@ function openPlayer(name){
       <div class="mstat"><div class="mstat-val" style="color:var(--green)">${bestGame?'+'+bestGame.delta:'—'}</div><div class="mstat-lbl">Mejor partida</div></div>
     </div>
     <div class="modal-section-title">Logros</div>
-    <div style="margin-bottom:14px;line-height:2">
-      ${ACHIEVEMENTS.map(a=>{const e=a.check(p,p.name);return`<span class="achievement ${e?'earned':''}" title="${a.desc}" onclick="toast('${a.desc.replace(/'/g,"\\'")}')">${a.icon} ${a.label}</span>`}).join('')}
+    <div class="ach-section">
+      ${(()=>{
+        const earned2=ACHIEVEMENTS.filter(a=>{try{return a.check(p,p.name);}catch(e){return false;}});
+        const earnedIds2=new Set(earned2.map(a=>a.id));
+        const pcts=achievementStats();
+        let html='';
+        html+=earned2.map(a=>`<span class="achievement earned" onclick="toast('${(a.desc+' — '+pcts[a.id]+'% de jugadores lo tiene').replace(/'/g,"\\'")}')"><span class="ach-icon">${a.icon}</span><span class="ach-label">${a.label}</span><span class="ach-pct">${pcts[a.id]}%</span></span>`).join('');
+        const missing=ACHIEVEMENTS.filter(a=>!earnedIds2.has(a.id));
+        if(missing.length)html+=`<div class="ach-divider">Faltantes</div>`+missing.map(a=>`<span class="achievement" onclick="toast('${(a.desc+' — '+pcts[a.id]+'% de jugadores lo tiene').replace(/'/g,"\\'")}')"><span class="ach-icon">${a.icon}</span><span class="ach-label">${a.label}</span><span class="ach-pct">${pcts[a.id]}%</span></span>`).join('');
+        return html;
+      })()}
     </div>
     ${rivals.length?`<div class="modal-section-title">Rivales frecuentes</div>
     <div style="display:flex;flex-direction:column;gap:5px">
