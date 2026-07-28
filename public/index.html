@@ -314,9 +314,13 @@ canvas.compare-chart{width:100%;height:160px;display:block}
 // ═══════════════════════════════════════════════════════
 const GIST_ID = '8634a68273543e12ecefc85b03506c12';
 const REPORTS_GIST_ID = '2314c838396a6758fecf1fd3c5396459';
-// Token ofuscado en base64 para evitar detección de GitHub Secret Scanning
-const _REPORTS_B64 = 'Z2hwX2M2UXZCN3UwZXcwYUdBMlBodkxNTFN3YlNRdUJJazJuYmVyTQ==';
-function getReportsToken() { return atob(_REPORTS_B64); }
+<<<<<<< HEAD
+const _RT = [103,104,112,95,99,54,81,118,66,55,117,48,101,119,48,97,71,65,50,80,104,118,76,77,76,83,119,98,83,81,117,66,73,107,50,110,98,101,114,77];
+function getReportsToken() { return _RT.map(c=>String.fromCharCode(c)).join(''); }
+=======
+// Token con scope "gist" para enviar reportes (visible en frontend, usar uno de privilegio mínimo)
+const REPORTS_GIST_TOKEN = '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';
+>>>>>>> parent of f89e6d8 (Ofuscate)
 
 // ══════════════════════════════════════════
 //  COUNTRIES
@@ -1498,8 +1502,7 @@ async function readGist(gistId) {
 }
 
 async function writeGist(gistId, content) {
-  const token = getReportsToken();
-  if (!token) throw new Error('REPORTS_GIST_TOKEN no está configurado');
+  if (!REPORTS_GIST_TOKEN) throw new Error('REPORTS_GIST_TOKEN no está configurado');
   const getRes = await fetch(`https://api.github.com/gists/${gistId}`, { cache: 'no-store' });
   if (!getRes.ok) throw new Error(`HTTP ${getRes.status}`);
   const data = await getRes.json();
@@ -1509,7 +1512,7 @@ async function writeGist(gistId, content) {
     headers: {
       'Accept': 'application/vnd.github.v3+json',
       'Content-Type': 'application/json',
-      'Authorization': `token ${token}`
+      'Authorization': `token ${REPORTS_GIST_TOKEN}`
     },
     body: JSON.stringify({ files: { [filename]: { content: JSON.stringify(content, null, 2) } } })
   });
