@@ -1262,10 +1262,19 @@ function elimBracketHtmlPublic(t,rounds){
             const idx=m[k];
             if(idx==null)return`<div style="padding:3px 0;color:var(--muted);font-size:11px">— bye —</div>`;
             const isWinner=m.winner===idx;
-            return`<div style="display:flex;justify-content:space-between;padding:2px 0;${isWinner?'color:var(--green);font-weight:700':''}">${teamName(t,idx)}${isWinner?' 🏆':''}</div>`;
+            const isOut=(t.withdrawn||[]).includes(idx);
+            return`<div style="display:flex;justify-content:space-between;padding:2px 0;${isWinner?'color:var(--green);font-weight:700':isOut?'color:var(--red);text-decoration:line-through':''}">${teamName(t,idx)}${isOut?' (retirado)':''}${isWinner?(m.wo?' 🏆 W.O.':' 🏆'):''}</div>`;
           }).join('')}
         </div>`).join('')}
     </div>`).join('');
+}
+ 
+function matchRowHtmlPublic(t,m){
+  const wo=m.wo?' <span style="color:var(--muted);font-size:9px">(W.O.)</span>':'';
+  return`<div style="display:flex;justify-content:space-between;align-items:center;background:var(--s1);border:1px solid var(--border);border-radius:8px;padding:7px 10px;margin-bottom:7px;flex-wrap:wrap;gap:8px;font-size:12px">
+    <span>${m.winner===m.a?'<strong style="color:var(--green)">':''}${teamName(t,m.a)}${m.winner===m.a?' 🏆</strong>':''} <span style="color:var(--muted)">vs</span> ${m.winner===m.b?'<strong style="color:var(--green)">':''}${teamName(t,m.b)}${m.winner===m.b?' 🏆</strong>':''}${wo}</span>
+    ${m.winner==null?'<span style="font-size:10px;color:var(--muted)">Pendiente</span>':''}
+  </div>`;
 }
 function standingsTableHtmlPublic(t,teamIdxs,matches,qualifyCount){
   const standings=standingsFor(teamIdxs,matches);
