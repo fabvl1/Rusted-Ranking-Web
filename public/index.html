@@ -314,6 +314,8 @@ canvas.compare-chart{width:100%;height:160px;display:block}
 // ═══════════════════════════════════════════════════════
 const GIST_ID = '8634a68273543e12ecefc85b03506c12';
 const REPORTS_GIST_ID = '2314c838396a6758fecf1fd3c5396459';
+// Token con scope "gist" para enviar reportes (visible en frontend, usar uno de privilegio mínimo)
+const REPORTS_GIST_TOKEN = ''; // ← PONÉ ACÁ TU TOKEN DE GITHUB (scope: gist)
 
 // ══════════════════════════════════════════
 //  COUNTRIES
@@ -414,30 +416,17 @@ let repFfaDeathOrder=[];
 //  CARGAR DATOS DESDE GITHUB GIST (público, sin token)
 // ═══════════════════════════════════════════════════════
 async function loadPublicData() {
-  const sources = [
-    '/api/ranking',
-    `https://api.github.com/gists/${GIST_ID}`
-  ];
-
-  let lastError = null;
-  for (const url of sources) {
-    try {
-      const res = await fetch(url, { cache: 'no-store' });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const json = await res.json();
-      if (json.files) {
-        const files = json.files || {};
-        const jsonFile = Object.values(files).find(f => f.filename && f.filename.endsWith('.json'));
-        if (!jsonFile) throw new Error('No se encontró .json en el gist');
-        return JSON.parse(jsonFile.content);
-      }
-      if (json.error) throw new Error(json.error);
-      return json.record || json;
-    } catch (err) {
-      lastError = err;
-    }
+  try {
+    const res = await fetch(`https://api.github.com/gists/${GIST_ID}`, { cache: 'no-store' });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const gistData = await res.json();
+    const files = gistData.files || {};
+    const jsonFile = Object.values(files).find(f => f.filename && f.filename.endsWith('.json'));
+    if (!jsonFile) throw new Error('No se encontró .json en el gist');
+    return JSON.parse(jsonFile.content);
+  } catch (err) {
+    throw err;
   }
-  throw lastError || new Error('No se pudieron obtener datos del Gist');
 }
 
 // ══════════════════════════════════════════
@@ -1497,6 +1486,35 @@ function repRemoveFfaTeam(){
 }
 
 // ── ENVÍO DE REPORTES ──────────────────────
+async function readGist(gistId) {
+  const res = await fetch(`https://api.github.com/gists/${gistId}`, { cache: 'no-store' });
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  const data = await res.json();
+  const files = data.files || {};
+  const jsonFile = Object.values(files).find(f => f.filename && f.filename.endsWith('.json'));
+  if (!jsonFile) throw new Error('No se encontró archivo .json en el gist');
+  return JSON.parse(jsonFile.content);
+}
+
+async function writeGist(gistId, content) {
+  if (!REPORTS_GIST_TOKEN) throw new Error('REPORTS_GIST_TOKEN no está configurado');
+  const getRes = await fetch(`https://api.github.com/gists/${gistId}`, { cache: 'no-store' });
+  if (!getRes.ok) throw new Error(`HTTP ${getRes.status}`);
+  const data = await getRes.json();
+  const filename = Object.keys(data.files).find(f => f.endsWith('.json')) || 'data.json';
+  const res = await fetch(`https://api.github.com/gists/${gistId}`, {
+    method: 'PATCH',
+    headers: {
+      'Accept': 'application/vnd.github.v3+json',
+      'Content-Type': 'application/json',
+      'Authorization': `token ${REPORTS_GIST_TOKEN}`
+    },
+    body: JSON.stringify({ files: { [filename]: { content: JSON.stringify(content, null, 2) } } })
+  });
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  return await res.json();
+}
+
 async function submitResult(){
   const note=document.getElementById('repNote').value.trim().slice(0,200);
   const msgEl=document.getElementById('repMsg');
@@ -1522,14 +1540,14 @@ async function submitResult(){
   }
   msgEl.innerHTML='<span style="color:var(--muted)">Enviando…</span>';
   try{
-    const res = await fetch('/api/report-user', {
-      method: 'POST',
-      headers: {'Content-Type':'application/json'},
-      body: JSON.stringify(payload)
+    let reports = [];
+    try { const existing = await readGist(REPORTS_GIST_ID); reports = existing.reports || []; } catch {}
+    reports.push({
+      id:'r_'+Date.now().toString(36)+Math.random().toString(36).slice(2,8),
+      submittedAt:Date.now(), status:'pending', ...payload
     });
-    const resJson = await res.json().catch(() => ({}));
-    if(!res.ok) throw new Error(resJson.error || `HTTP ${res.status}`);
-
+    if(reports.length>500) reports=reports.slice(reports.length-500);
+    await writeGist(REPORTS_GIST_ID, { reports });
     msgEl.innerHTML='<span style="color:var(--teal)">✅ Reporte enviado — el admin lo va a revisar.</span>';
     toast('Reporte enviado, pendiente de aprobación');
     repSlotsA=[''];repSlotsB=[''];repFfaTeams=[[''],['']];repFfaDeathOrder=[];repWinner='A';
