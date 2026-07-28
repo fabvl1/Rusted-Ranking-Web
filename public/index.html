@@ -403,50 +403,69 @@ function geoOf(code){return CONTINENT_MAP[code]||[null,null];}
 // ══════════════════════════════════════════
 //  ESTADO
 // ══════════════════════════════════════════
-// El Bin ID / API Key de JSONBin ya NO se piden ni se guardan en el
-// navegador: viven como variables de entorno del servidor (ver
-// netlify/functions/ranking.js) y esta página solo consulta ese endpoint.
 let data = null;
 let lbSort = 'general';
 let histView = 'all';
 let histType = 'all';
 let histPlayerSel = '';
 let refreshTimer = null;
-const JSONBIN_FALLBACK_RANKING_URL = 'https://api.jsonbin.io/v3/b/6a406783da38895dfe0960ee/latest';
-const API_BASE = (() => {
-  const fromWindow = typeof window.RUSTED_API_BASE === 'string' ? window.RUSTED_API_BASE : '';
-  let fromStorage = '';
-  try { fromStorage = localStorage.getItem('RUSTED_API_BASE') || ''; } catch {}
-  return (fromWindow || fromStorage).trim().replace(/\/+$/, '');
-})();
-function apiUrl(path){
-  return API_BASE ? `${API_BASE}${path}` : path;
-}
-async function fetchRankingJson(){
-  const primaryUrl = apiUrl('/api/ranking');
-  const urls = [primaryUrl];
-  if(!API_BASE && primaryUrl === '/api/ranking') urls.push(JSONBIN_FALLBACK_RANKING_URL);
 
-  let lastError = null;
-  for(const url of urls){
-    try{
-      const res = await fetch(url,{cache:'no-store'});
-      if(!res.ok)throw new Error(`HTTP ${res.status}`);
-      return await res.json();
-    }catch(err){
-      lastError = err;
+// ═══════════════════════════════════════════════════════
+//  CONFIGURACION GITHUB GIST (hardcodeada)
+// ═══════════════════════════════════════════════════════
+const GIST_ID = 'TU_GIST_ID_AQUI';
+const GITHUB_TOKEN = 'ghp_TU_TOKEN_AQUI';
+
+// ═══════════════════════════════════════════════════════
+//  CARGAR DATOS DESDE GITHUB GIST
+// ═══════════════════════════════════════════════════════
+async function loadPublicData() {
+  try {
+    const headers = {
+      'Accept': 'application/vnd.github.v3+json'
+    };
+
+    if (GITHUB_TOKEN) {
+      headers['Authorization'] = `token ${GITHUB_TOKEN}`;
     }
+
+    const res = await fetch(`https://api.github.com/gists/${GIST_ID}`, {
+      headers,
+      cache: 'no-store'
+    });
+
+    if (!res.ok) {
+      throw new Error(`HTTP ${res.status}: ${res.statusText}`);
+    }
+
+    const gistData = await res.json();
+    const files = gistData.files || {};
+    const jsonFile = Object.values(files).find(f =>
+      f.filename && f.filename.endsWith('.json')
+    );
+
+    if (!jsonFile) {
+      throw new Error('No se encontro archivo .json en el gist');
+    }
+
+    const content = JSON.parse(jsonFile.content);
+    console.log('Datos cargados desde GitHub Gist');
+    return content;
+
+  } catch (error) {
+    console.error('Error cargando desde GitHub:', error);
+    return null;
   }
-  throw lastError || new Error('No se pudo cargar el ranking');
 }
 
 // ══════════════════════════════════════════
-//  FETCH (vía función serverless del hosting)
+//  FETCH
 // ══════════════════════════════════════════
 async function fetchData(){
   try{
-    const json=await fetchRankingJson();
-    data=json.record||json;
+    const loaded=await loadPublicData();
+    if(!loaded) throw new Error('No se pudieron obtener datos del Gist');
+    data=loaded.record||loaded;
     ensureFields();
     const now=new Date().toLocaleString('es',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'});
     document.getElementById('lastUpdateLbl').textContent=`Actualizado: ${now}`;
