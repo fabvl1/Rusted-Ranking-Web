@@ -159,7 +159,7 @@ table.lb-table tr:hover td{background:rgba(255,255,255,0.015);cursor:pointer}
 .chart-tab.active{background:var(--s3);color:var(--gold);font-weight:600}
 .chart-wrap{background:var(--s2);border:1px solid var(--border);border-radius:10px;padding:12px;margin-bottom:14px}
 .chart-title{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;margin-bottom:10px;font-family:var(--mono)}
-canvas.elo-chart{width:100%;height:130px;display:block}
+canvas.elo-chart{width:100%;height:160px;display:block}
 
 /* COMPARE TAB */
 .compare-selectors{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:20px}
@@ -1212,46 +1212,64 @@ function drawModalChart(p,mode){
 function drawChart(canvas,pts,snaps,color){
   const DPR=window.devicePixelRatio||1;
   const ctx=canvas.getContext('2d');
-  canvas.width=canvas.offsetWidth*DPR;canvas.height=130*DPR;
+  canvas.width=canvas.offsetWidth*DPR;canvas.height=160*DPR;
   ctx.clearRect(0,0,canvas.width,canvas.height);
   const W=canvas.width,H=canvas.height;
   if(!snaps||!snaps.length){
     ctx.fillStyle='rgba(107,104,128,0.5)';ctx.font=`${11*DPR}px Consolas`;ctx.textAlign='center';
     ctx.fillText('Sin partidas registradas',W/2,H/2);return;
   }
-  const candles=snaps.map((s,i)=>({
-    open:pts[i]||pts[0],
-    close:pts[i+1]||pts[i],
-    won:s.won
-  }));
-  const allVals=candles.flatMap(c=>[c.open,c.close]);
-  const minE=Math.min(...allVals)-20,maxE=Math.max(...allVals)+20;
-  const range=maxE-minE||100;
-  const PAD=16*DPR,plotW=W-PAD*2,plotH=H-PAD*2;
-  const yOf=v=>PAD+plotH-((v-minE)/range*plotH);
-  const n=candles.length;
-  const slotW=plotW/n;
-  const bodyW=Math.max(3*DPR,Math.min(14*DPR,slotW*0.65));
-  const xOf=i=>PAD+slotW*(i+0.5);
-  ctx.strokeStyle='rgba(42,42,58,0.8)';ctx.lineWidth=1;
-  for(let g=0;g<=4;g++){const y=PAD+g*(plotH/4);ctx.beginPath();ctx.moveTo(PAD,y);ctx.lineTo(W-PAD,y);ctx.stroke();}
-  candles.forEach((c,i)=>{
-    const x=xOf(i);
-    const yO=yOf(c.open),yC=yOf(c.close);
-    const yTop=Math.min(yO,yC),yBot=Math.max(yO,yC);
-    const bodyH=Math.max(2*DPR,yBot-yTop);
-    const stroke=c.won?'#3ecf88':'#e84040';
-    const fill=c.won?'rgba(62,207,136,0.82)':'rgba(232,64,64,0.82)';
-    ctx.strokeStyle=stroke;ctx.lineWidth=1.2*DPR;
-    ctx.beginPath();ctx.moveTo(x,yTop);ctx.lineTo(x,yBot);ctx.stroke();
-    ctx.fillStyle=fill;
-    ctx.fillRect(x-bodyW/2,yTop,bodyW,bodyH);
-    ctx.strokeStyle=stroke;ctx.lineWidth=0.8*DPR;
-    ctx.strokeRect(x-bodyW/2,yTop,bodyW,bodyH);
+  const n=pts.length;
+  const minV=Math.min(...pts)-20,maxV=Math.max(...pts)+20;
+  const range=maxV-minV||100;
+  const PAD={t:18*DPR,b:22*DPR,l:46*DPR,r:30*DPR};
+  const plotW=W-PAD.l-PAD.r,plotH=H-PAD.t-PAD.b;
+  const yOf=v=>PAD.t+plotH-((v-minV)/range*plotH);
+  const xOf=i=>PAD.l+(i/(n-1||1))*plotW;
+
+  ctx.textAlign='right';ctx.textBaseline='middle';
+  for(let g=0;g<=4;g++){
+    const v=Math.round(minV+range*g/4),y=PAD.t+plotH*(1-g/4);
+    ctx.strokeStyle='rgba(42,42,58,0.5)';ctx.lineWidth=1*DPR;
+    ctx.beginPath();ctx.moveTo(PAD.l,y);ctx.lineTo(W-PAD.r,y);ctx.stroke();
+    ctx.fillStyle='rgba(107,104,128,0.55)';ctx.font=`${9*DPR}px Consolas`;
+    ctx.fillText(v,PAD.l-5*DPR,y);
+  }
+
+  const grad=ctx.createLinearGradient(0,PAD.t,0,PAD.t+plotH);
+  grad.addColorStop(0,color+'40');grad.addColorStop(1,color+'05');
+  ctx.fillStyle=grad;
+  ctx.beginPath();ctx.moveTo(xOf(0),yOf(pts[0]));
+  for(let i=1;i<n;i++)ctx.lineTo(xOf(i),yOf(pts[i]));
+  ctx.lineTo(xOf(n-1),PAD.t+plotH);ctx.lineTo(xOf(0),PAD.t+plotH);
+  ctx.closePath();ctx.fill();
+
+  ctx.strokeStyle=color;ctx.lineWidth=2*DPR;ctx.lineJoin='round';
+  ctx.beginPath();ctx.moveTo(xOf(0),yOf(pts[0]));
+  for(let i=1;i<n;i++)ctx.lineTo(xOf(i),yOf(pts[i]));
+  ctx.stroke();
+
+  snaps.forEach((s,i)=>{
+    const x=xOf(i+1),y=yOf(pts[i+1]);
+    ctx.beginPath();ctx.arc(x,y,3*DPR,0,Math.PI*2);
+    ctx.fillStyle=s.won?'#3ecf88':'#e84040';ctx.fill();
+    ctx.strokeStyle='#1a1a2e';ctx.lineWidth=1*DPR;ctx.stroke();
   });
-  const lastElo=pts[pts.length-1];
-  ctx.fillStyle=color;ctx.font=`bold ${9*DPR}px Consolas`;ctx.textAlign='right';
-  ctx.fillText(lastElo,W-PAD+2,yOf(lastElo)-5);
+
+  const x0=xOf(0),y0=yOf(pts[0]);
+  ctx.beginPath();ctx.arc(x0,y0,3*DPR,0,Math.PI*2);
+  ctx.fillStyle='rgba(107,104,128,0.7)';ctx.fill();
+  ctx.fillStyle='rgba(107,104,128,0.45)';ctx.font=`${8*DPR}px Consolas`;
+  ctx.textAlign='center';ctx.textBaseline='bottom';
+  ctx.fillText(pts[0],x0,y0-6*DPR);
+
+  const xe=xOf(n-1),ye=yOf(pts[n-1]);
+  ctx.fillStyle=color;ctx.font=`bold ${11*DPR}px Consolas`;
+  ctx.textBaseline='bottom';ctx.fillText(pts[n-1],xe,ye-6*DPR);
+
+  ctx.fillStyle='rgba(107,104,128,0.35)';ctx.font=`${8*DPR}px Consolas`;
+  ctx.textAlign='center';ctx.textBaseline='top';
+  ctx.fillText(snaps.length+' partidas',PAD.l+plotW/2,H-PAD.b+4*DPR);
 }
 
 function openPlayer(name){
