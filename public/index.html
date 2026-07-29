@@ -883,7 +883,36 @@ function renderOverview(){
       ${podiumCard('🛡 Top Equipo',byTeam,'elo_team','var(--blue)')}
       ${podiumCard('👑 Top FFA',byFfa,'elo_ffa','var(--ffa-c)')}
     </div>
-    ${buildWinPctAndStreakPanels()}`;
+    ${buildWinPctAndStreakPanels()}
+    <div class="modal-section-title" style="cursor:pointer;margin-top:20px;user-select:none" onclick="this.nextElementSibling.classList.toggle('hidden')">📖 Cómo funciona el ELO <span style="font-size:9px;opacity:.5">(click para expandir)</span></div>
+    <div class="hidden" style="font-size:11px;line-height:1.7;color:var(--muted);background:var(--s1);border:1px solid var(--border);border-radius:12px;padding:14px 16px;margin-top:6px">
+      <b style="color:var(--text)">Fórmula base</b><br>
+      <code>Δ = K × (resultado − probabilidadEsperada)</code><br><br>
+
+      <b style="color:var(--text)">K (sensibilidad)</b><br>
+      Depende del ELO del jugador. A menor ELO, más cambia por partida:<br>
+      • &lt;800 → K=80  ·  &lt;1200 → K=50  ·  ≥1200 → K=24<br>
+      En partidas de equipo se usa el <b>promedio del K de todos los jugadores</b>.<br><br>
+
+      <b style="color:var(--text)">Probabilidad esperada</b><br>
+      Se calcula con los ELOs efectivos (ajustados por cantidad de jugadores):<br>
+      <code>P(ganar) = 1 / (1 + 10^((ELO_rival − ELO_propio) / 400))</code><br><br>
+
+      <b style="color:var(--text)">Ajuste por desventaja numérica</b><br>
+      Si un equipo tiene menos jugadores, su ELO efectivo se multiplica por <code>(rivales/propios)^0.4</code>.<br>
+      Ej: 1vs2 → ELO × (2/1)^0.4 = ×1.32  |  2vs1 → ELO × (1/2)^0.4 = ×0.76<br><br>
+
+      <b style="color:var(--text)">Conservación del ELO</b><br>
+      En partidas con la misma cantidad de jugadores, el ELO se conserva (lo que unos ganan, otros pierden).<br>
+      En partidas desparejas (1vs2, 3vs2, etc.), el delta se escala para que el total sea cero.<br><br>
+
+      <b style="color:var(--text)">Rangos</b><br>
+      SSS ≥2100 · SS ≥2000 · S ≥1900 · A ≥1650 · B ≥1500 · C ≥1350 · D ≥1150 · E ≥900 · F &lt;900<br><br>
+
+      <b style="color:var(--text)">Diferencia entre General y modos</b><br>
+      El ELO General es el promedio redondeado de PVP + Equipo + FFA.<br>
+      Cada modo tiene su propio ELO e historial independiente.
+    </div>`;
 }
 
 // ── COMPARE ──────────────────────────────
