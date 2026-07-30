@@ -420,6 +420,8 @@ let repSlotsA=[''], repSlotsB=[''];
 let repWinner='A';
 let repFfaTeams=[[''],['']];
 let repFfaDeathOrder=[];
+const REP_FFA_PALETTE=['#5b9bd5','#ed7d31','#70ad47','#ffc000','#4472c4','#c55a11','#548235','#bf8f00','#255e91','#843c0c','#375623','#806000','#f0f','#0ff','#ff0','#f80','#8f0','#08f','#f44','#4f4','#44f','#fa0','#0af','#af0','#f0a','#a0f'];
+function repFfaColor(i){return REP_FFA_PALETTE[i%REP_FFA_PALETTE.length];}
 
 // ═══════════════════════════════════════════════════════
 //  CARGAR DATOS DESDE GITHUB GIST (público, sin token)
@@ -1462,13 +1464,6 @@ function renderTournaments(){
 
 // ── REPORTAR RESULTADO (jugadores) ──
 
-function setRepMode(m){
-  repMode=m;
-  document.getElementById('repModeNormal').classList.toggle('active',m==='normal');
-  document.getElementById('repModeFFA').classList.toggle('active',m==='ffa');
-  document.getElementById('repNormalBlock').style.display=m==='normal'?'':'none';
-  document.getElementById('repFfaBlock').style.display=m==='ffa'?'':'none';
-}
 function renderReportForm(){
   if(!data)return;
   const el=document.getElementById('reportContent');
@@ -1508,7 +1503,17 @@ function renderReportForm(){
       <input id="repNote" class="search-input" style="width:100%" placeholder="ej: mapa X, screenshot en Discord…" value="${(window._repNote||'').replace(/"/g,'&quot;')}">
       <button class="btn btn-gold" style="width:100%;margin-top:14px" onclick="submitResult()">Enviar reporte</button>
       <div id="repMsg" style="margin-top:10px;font-size:12px"></div>
-    </div>`;
+    </div>
+
+    <details style="max-width:620px;margin-top:24px;font-size:11px;color:var(--muted);line-height:1.5">
+      <summary style="cursor:pointer;font-weight:600;margin-bottom:6px">📜 Reglas del ranking</summary>
+      <ul style="padding-left:18px;margin:6px 0">
+        <li><strong>Consentimiento:</strong> Todos los miembros de la partida deben aceptar que el resultado se suba al ranking.</li>
+        <li><strong>Desconexión (1v1 / Team):</strong> Si un jugador pierde por culpa de su conexión o una interrupción, la partida no es válida. Si la interrupción ocurre cuando la partida ya estaba definida (perdida), sí es válida. Falsificar una interrupción conlleva -1000 ELO.</li>
+        <li><strong>Desconexión (FFA):</strong> Si un jugador se desconecta, la partida se considera válida excluyendo a ese jugador del resultado.</li>
+        <li><strong>Falsificación:</strong> Reportar resultados falsos conlleva la expulsión de la comunidad y del ranking. Usá la <em>nota adicional</em> para aclarar cualquier situación especial.</li>
+      </ul>
+    </details>`;
   setRepMode(repMode);
   renderRepTeam('repSlotsA',repSlotsA,'A','repAddA');
   renderRepTeam('repSlotsB',repSlotsB,'B','repAddB');
@@ -1565,7 +1570,7 @@ function renderRepFfa(){
     if(isDead)badge=`<span style="font-size:11px;color:var(--muted);font-weight:700">☠ ${place}° puesto</span>`;
     else if(place===1)badge=`<span style="font-size:11px;color:var(--green);font-weight:700">🏆 1er puesto</span>`;
     return`
-    <div class="team-card">
+    <div class="team-card" style="border-left:3px solid ${repFfaColor(ti)}">
       <div class="team-header" style="cursor:${isDead||place===1?'default':'pointer'}" onclick="${isDead||place===1?'':`repMarkFfaDead(${ti})`}">
         <div class="team-name">Equipo ${ti+1}</div>${badge}
       </div>
@@ -1617,7 +1622,7 @@ function repFfaRemoveSlot(ti,si){
   renderReportForm();
 }
 function repAddFfaTeam(){
-  if(repFfaTeams.length>=5){toast('Máximo 5 equipos','err');return;}
+  if(repFfaTeams.length>=26){toast('Máximo 26 equipos','err');return;}
   repFfaTeams.push(['']);renderReportForm();
 }
 function repRemoveFfaTeam(){
