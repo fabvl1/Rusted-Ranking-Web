@@ -629,11 +629,13 @@ function renderAll(){
   renderReportForm();
 }
 
-let lbContinent='', lbRegion='', lbCountry='';
+let lbContinent='', lbRegion='', lbCountry='', lbSearch='';
 
 function filteredRoster(){
   if(!data)return[];
+  const q=lbSearch.trim().toLowerCase();
   return data.roster.filter(p=>{
+    if(q&&!p.name.toLowerCase().includes(q))return false;
     const [cont,reg]=geoOf(p.country);
     if(lbCountry)return p.country===lbCountry;
     if(lbRegion)return reg===lbRegion;
@@ -641,6 +643,7 @@ function filteredRoster(){
     return true;
   });
 }
+function setLbSearch(v){lbSearch=v;renderLeaderboard();}
 function regionFilterBar(){
   const continents=[...new Set(Object.values(CONTINENT_MAP).map(g=>g[0]))].sort();
   const regionsForCont=lbContinent?[...new Set(Object.entries(CONTINENT_MAP).filter(([,g])=>g[0]===lbContinent).map(([,g])=>g[1]))].sort():[];
@@ -684,9 +687,13 @@ function renderLeaderboard(){
   const list=filteredRoster().sort((a,b)=>(b[sortKey]||1500)-(a[sortKey]||1500));
 
   const sortBar=`<div class="lb-sort-bar">
+    <div style="position:relative;flex:1;min-width:160px;max-width:320px">
+      <span style="position:absolute;left:10px;top:50%;transform:translateY(-50%);font-size:13px;opacity:.6;pointer-events:none">🔍</span>
+      <input class="search-input" type="text" id="lbSearchInput" placeholder="Buscar jugador..." value="${lbSearch.replace(/"/g,'&quot;')}" oninput="setLbSearch(this.value)" style="width:100%;padding-left:30px">
+    </div>
     <span style="font-size:11px;color:var(--muted)">Ordenar:</span>
     ${['general','pvp','team','ffa'].map(m=>`<button class="sort-btn ${lbSort===m?'active':''}" onclick="setLbSort('${m}')">${m.toUpperCase()}</button>`).join('')}
-    <span style="margin-left:auto;font-size:11px;color:var(--muted)">${list.length} jugador${list.length===1?'':'es'}${(lbContinent||lbRegion||lbCountry)?' (filtrado)':''}</span>
+    <span style="margin-left:auto;font-size:11px;color:var(--muted)">${list.length} jugador${list.length===1?'':'es'}${(lbContinent||lbRegion||lbCountry||lbSearch)?' (filtrado)':''}</span>
   </div>`;
 
   let thCols=`<th>#</th><th>Jugador</th><th>País</th>`;
@@ -729,9 +736,6 @@ function renderLeaderboard(){
 function setLbSort(m){lbSort=m;renderLeaderboard();}
 
 // ── HISTORY ──────────────────────────────
-const FFA_COLORS=['var(--blue)','var(--red)','var(--green)','var(--orange)','var(--ffa-c)'];
-const FFA_LABELS=['A','B','C','D','E'];
-
 function renderHistory(){
   if(!data)return;
   let list=[...data.history];
@@ -766,10 +770,14 @@ function renderHistory(){
       const bc=mode==='pvp'?'h-pvp':mode==='ffa'?'h-ffa':'h-team';
       const ml=mode==='pvp'?'PVP':mode==='ffa'?'FFA':'Equipos';
       const wc=mode==='ffa'?'hw-ffa':h.winnerTeam==='A'?'hw-a':'hw-b';
-      const wl=mode==='ffa'?`Ganó ${h.winnerTeam||FFA_LABELS[h.winnerTeamIdx||0]}`:`Ganó ${h.winnerTeam}`;
       let teamsLine='';
       if(mode==='ffa'&&h.teams){
-        teamsLine=h.teams.map((t,i)=>`<div style="font-size:11px;color:var(--muted)"><span style="color:${FFA_COLORS[i]};font-weight:700">${FFA_LABELS[i]}:</span> <strong style="color:var(--text)">${t.join(', ')}</strong></div>`).join('');
+        const placeOf={};(h.order||[]).forEach((teamIdx,rank)=>{placeOf[teamIdx]=rank+1;});
+        if(h.winnerTeamIdx!=null&&!h.order)placeOf[h.winnerTeamIdx]=1;
+        teamsLine=h.teams.map((t,i)=>{
+          const place=placeOf[i];
+          return`<div style="font-size:11px;color:var(--muted)"><span style="color:${repFfaColor(i)};font-weight:700">${place?`${place}° puesto`:''}</span> <strong style="color:var(--text)">${t.join(', ')}</strong></div>`;
+        }).join('');
       }else{
         teamsLine=`<div style="font-size:11px;color:var(--muted)"><span style="color:var(--blue);font-weight:700">A:</span> <strong style="color:var(--text)">${(h.teamA||[]).join(', ')}</strong></div>
         <div style="font-size:11px;color:var(--muted)"><span style="color:var(--red);font-weight:700">B:</span> <strong style="color:var(--text)">${(h.teamB||[]).join(', ')}</strong></div>`;
@@ -783,7 +791,7 @@ function renderHistory(){
           <div style="margin-top:4px">${teamsLine}</div>
           <div style="display:flex;gap:4px;flex-wrap:wrap;margin-top:5px">${deltas}</div>
         </div>
-        <span class="h-winner-badge ${wc}">${wl}</span>
+        <span class="h-winner-badge ${wc}">${mode==='ffa'?'🏆 1° puesto':`Ganó ${h.winnerTeam}`}</span>
       </div>`;
     }).join('')}
   </div>`;
@@ -894,19 +902,29 @@ function renderOverview(){
       <b style="color:var(--text)">K (sensibilidad)</b><br>
       Depende del ELO del jugador. A menor ELO, más cambia por partida:<br>
       • &lt;800 → K=80  ·  &lt;1200 → K=50  ·  ≥1200 → K=24<br>
-      En partidas de equipo se usa el <b>promedio del K de todos los jugadores</b>.<br><br>
+      En partidas de equipo se usa el <b>promedio del K de todos los jugadores</b> y todos los integrantes reciben el mismo cambio.<br><br>
 
       <b style="color:var(--text)">Probabilidad esperada</b><br>
       Se calcula con los ELOs efectivos (ajustados por cantidad de jugadores):<br>
-      <code>P(ganar) = 1 / (1 + 10^((ELO_rival − ELO_propio) / 400))</code><br><br>
+      <code>P(ganar) = 1 / (1 + 10^((ELO_rival − ELO_propio) / 400))</code><br>
+      En partidas de equipo la probabilidad se limita entre 15% y 85% para evitar cambios extremos.<br><br>
 
       <b style="color:var(--text)">Ajuste por desventaja numérica</b><br>
-      Si un equipo tiene menos jugadores, su ELO efectivo se multiplica por <code>(rivales/propios)^0.4</code>.<br>
-      Ej: 1vs2 → ELO × (2/1)^0.4 = ×1.32  |  2vs1 → ELO × (1/2)^0.4 = ×0.76<br><br>
+      Cada equipo ajusta su ELO efectivo según la proporción de jugadores:<br>
+      <code>ELO efectivo = ELO × (propios/rivales)^0.4</code><br>
+      Ej: en un 1vs2 → el solitario × (1/2)^0.4 = ×0.76 · el dúo × (2/1)^0.4 = ×1.32<br>
+      Así, ganar estando en desventaja numérica rinde más, y perder en ventaja cuesta más.<br><br>
+
+      <b style="color:var(--text)">Modo FFA</b><br>
+      El reparto es por <b>posición final</b>, no por parejas. Con N equipos, la primera mitad suma y la segunda resta (el del medio no cambia si N es impar):<br>
+      • Coeficientes: 1° → <code>N−1</code>, 2° → <code>N−2</code>… último → <code>−(N−1)</code><br>
+      • Con 4 equipos: 1° +60%, 2° +40%, 3° −40%, 4° −60% (de la masa total en juego)<br>
+      Se ajusta por dos factores:<br>
+      • <b>Tamaño de equipo</b>: los equipos chicos ganan más y pierden menos (factor <code>^0.3</code>).<br>
+      • <b>ELO promedio del equipo</b>: el favorito gana menos y pierde más; el de menor ELO gana más y pierde menos (factor entre 0.4 y 2.0).<br><br>
 
       <b style="color:var(--text)">Conservación del ELO</b><br>
-      En partidas con la misma cantidad de jugadores, el ELO se conserva (lo que unos ganan, otros pierden).<br>
-      En partidas desparejas (1vs2, 3vs2, etc.), el delta se escala para que el total sea cero.<br><br>
+      El ELO siempre se conserva: lo que unos ganan, otros lo pierden. En partidas desparejas (1vs2, 3vs2, FFA…) el delta se escala para que el total de la partida sea cero.<br><br>
 
       <b style="color:var(--text)">Rangos</b><br>
       SSS ≥2100 · SS ≥2000 · S ≥1900 · A ≥1650 · B ≥1500 · C ≥1350 · D ≥1150 · E ≥900 · F &lt;900<br><br>
