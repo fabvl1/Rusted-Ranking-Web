@@ -1139,7 +1139,7 @@ function undoLast(){
   (h.changes||[]).forEach(c=>{
     const p=state.roster.find(r=>r.name===c.n);
     if(!p) return;
-    p['elo_'+mode]=Math.max(100,(p['elo_'+mode']||1500)-c.delta);
+    p['elo_'+mode]=Math.max(100,(p['elo_'+mode]||1500)-c.delta);
     p.elo_general=Math.round(((p.elo_pvp||1500)+(p.elo_team||1500)+(p.elo_ffa||1500))/3);
     delete p.elo;
     p.partidas=Math.max(0,(p.partidas||1)-1);
@@ -1971,6 +1971,7 @@ function showTab(id){
   if(id==='pending'){renderPending();gistFetchReports(true);}
   if(id==='tournaments')renderTournamentsAdmin();
 }
+window.showTab = showTab;
 
 // ═══════════════════════════════════════════════════════
 //  TOAST
