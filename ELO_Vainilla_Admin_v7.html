@@ -101,6 +101,10 @@ table.roster-table th{background:var(--s2);padding:9px 11px;font-size:10px;color
 table.roster-table td{padding:9px 11px;border-bottom:1px solid var(--border2);font-size:12px;vertical-align:middle}
 table.roster-table tr:hover td{background:rgba(255,255,255,0.015)}
 .rank-badge{display:inline-flex;align-items:center;justify-content:center;font-family:var(--mono);font-size:9px;font-weight:700;padding:2px 7px;border-radius:4px;min-width:28px}
+.rank-change-indicator{display:inline-flex;align-items:center;gap:3px;margin-left:6px;font-family:var(--mono);font-size:10px;font-weight:700;animation:fadeRankChange 8s forwards}
+.rank-up{color:var(--green)}
+.rank-down{color:var(--red)}
+@keyframes fadeRankChange{0%,80%{opacity:1}100%{opacity:0}}
 .elo-cell{font-family:var(--mono);font-size:11px;font-weight:600}
 .win-pct{font-family:var(--mono);font-size:11px}
 .wg{color:var(--green)}.wm{color:var(--gold)}.wb{color:var(--red)}
@@ -622,7 +626,8 @@ const mkPlayer = (name, country) => ({
   team_wins:0, team_losses:0,
   ffa_wins:0, ffa_losses:0,
   pvp_hist:[], team_hist:[], ffa_hist:[],
-  name_history:[]
+  name_history:[],
+  prev_rank:null, rank_changed_at:null
 });
 
 // ═══════════════════════════════════════════════════════
@@ -1067,6 +1072,12 @@ function calcFFA(teams, winnerIdx){
 }
 
 function applyChanges(changes, mode, histEntry){
+  // Calcular ranks actuales antes de aplicar cambios
+  const beforeRank = {};
+  state.roster.forEach(p => {
+    beforeRank[p.name] = getGlobalRankPosition(p);
+  });
+  
   changes.forEach(c=>{
     const p=state.roster.find(r=>r.name===c.n);
     if(!p) return;
@@ -1083,9 +1094,28 @@ function applyChanges(changes, mode, histEntry){
     p[mode+'_hist'].push(snap);
     if(p[mode+'_hist'].length>15) p[mode+'_hist'].shift();
   });
+  
+  // Actualizar ranks después de aplicar cambios y detectar cambios
+  const now = Date.now();
+  state.roster.forEach(p => {
+    const currentRank = getGlobalRankPosition(p);
+    const prevRank = p.prev_rank !== null ? p.prev_rank : beforeRank[p.name];
+    
+    if (prevRank !== null && prevRank !== currentRank) {
+      p.rank_changed_at = now;
+    }
+    p.prev_rank = currentRank;
+  });
+  
   state.history.unshift(histEntry);
   save();
   updateUndoBtn();
+}
+
+function getGlobalRankPosition(player) {
+  const sorted = [...state.roster].sort((a,b) => b.elo_general - a.elo_general);
+  const idx = sorted.findIndex(p => p.name === player.name);
+  return idx >= 0 ? idx + 1 : null;
 }
 
 function undoLast(){
@@ -1093,10 +1123,17 @@ function undoLast(){
   if(!confirm('¿Deshacer la última partida registrada?')) return;
   const h=state.history[0];
   const mode=h.mode||(h.type==='pvp'?'pvp':h.type==='ffa'?'ffa':'team');
+  
+  // Guardar ranks antes de deshacer para restaurarlos después
+  const beforeUndoRank = {};
+  state.roster.forEach(p => {
+    beforeUndoRank[p.name] = getGlobalRankPosition(p);
+  });
+  
   (h.changes||[]).forEach(c=>{
     const p=state.roster.find(r=>r.name===c.n);
     if(!p) return;
-    p['elo_'+mode]=Math.max(100,(p['elo_'+mode]||1500)-c.delta);
+    p['elo_'+mode]=Math.max(100,(p['elo_'+mode']||1500)-c.delta);
     p.elo_general=Math.round(((p.elo_pvp||1500)+(p.elo_team||1500)+(p.elo_ffa||1500))/3);
     delete p.elo;
     p.partidas=Math.max(0,(p.partidas||1)-1);
@@ -1106,6 +1143,13 @@ function undoLast(){
     const idx=hist.map(x=>x.delta).lastIndexOf(c.delta);
     if(idx>=0) hist.splice(idx,1);
   });
+  
+  // Restaurar ranks al estado anterior
+  state.roster.forEach(p => {
+    p.prev_rank = beforeUndoRank[p.name];
+    p.rank_changed_at = null;
+  });
+  
   state.history.shift();
   save();
   toast('↩ Última partida deshecha');
@@ -1484,7 +1528,7 @@ function renderRoster(){
       <td><span class="elo-cell elo-team" onclick="startEditElo('${p.name.replace(/'/g,"\\'")}','elo_team')">${p.elo_team||1500}</span></td>
       <td><span class="elo-cell elo-ffa" onclick="startEditElo('${p.name.replace(/'/g,"\\'")}','elo_ffa')">${p.elo_ffa||1500}</span></td>
       <td><span class="elo-cell elo-gen" onclick="startEditElo('${p.name.replace(/'/g,"\\'")}','elo_general')">${p.elo_general||1500}</span></td>
-      <td><span class="rank-badge" style="background:${rk.bg};color:${rk.color}">${rk.label}</span></td>
+      <td><span class="rank-badge" style="background:${rk.bg};color:${rk.color}">${rk.label}</span>${renderRankChangeIndicator(p)}</td>
       <td>${winPctEl(p.pvp_wins||0,p.pvp_losses||0,'var(--purple)')}</td>
       <td>${winPctEl(p.team_wins||0,p.team_losses||0,'var(--blue)')}</td>
       <td>${winPctEl(p.ffa_wins||0,p.ffa_losses||0,'var(--ffa-c)')}</td>
@@ -1496,6 +1540,34 @@ function renderRoster(){
       </td>`;
     tbody.appendChild(tr);
   });
+}
+
+function renderRankChangeIndicator(p) {
+  if (p.prev_rank === null || p.rank_changed_at === null) return '';
+  
+  const now = Date.now();
+  const elapsed = now - p.rank_changed_at;
+  const fadeDuration = 24 * 60 * 60 * 1000; // 24 horas
+  
+  if (elapsed > fadeDuration) {
+    // Resetear el indicador si ya pasó mucho tiempo
+    p.prev_rank = getGlobalRankPosition(p);
+    p.rank_changed_at = null;
+    return '';
+  }
+  
+  const currentRank = getGlobalRankPosition(p);
+  const diff = p.prev_rank - currentRank;
+  
+  if (diff === 0) return '';
+  
+  if (diff > 0) {
+    // Subió de posición (ej: de 10 a 7, diff = 3)
+    return `<span class=\"rank-change-indicator rank-up\">▲ +${diff}</span>`;
+  } else {
+    // Bajó de posición (ej: de 7 a 10, diff = -3)
+    return `<span class=\"rank-change-indicator rank-down\">▼ ${Math.abs(diff)}</span>`;
+  }
 }
 
 function startEditName(oldName){
