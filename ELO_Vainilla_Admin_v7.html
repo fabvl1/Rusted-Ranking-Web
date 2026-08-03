@@ -898,6 +898,8 @@ function ensureFields(){
     if(!p.country) p.country='';
     if(!p.pvp_hist) p.pvp_hist=[];
     if(!p.team_hist) p.team_hist=[];
+    if(p.prev_rank===undefined) p.prev_rank=null;
+    if(p.rank_changed_at===undefined) p.rank_changed_at=null;
     delete p.elo;
   });
 }
@@ -1103,6 +1105,10 @@ function applyChanges(changes, mode, histEntry){
     
     if (prevRank !== null && prevRank !== currentRank) {
       p.rank_changed_at = now;
+    } else if (p.rank_changed_at !== null) {
+      // Si el rank no cambió pero tenía un cambio registrado, actualizar prev_rank sin cambiar la fecha
+      p.prev_rank = currentRank;
+      return; // Salir temprano para no sobrescribir prev_rank abajo
     }
     p.prev_rank = currentRank;
   });
@@ -1553,6 +1559,7 @@ function renderRankChangeIndicator(p) {
     // Resetear el indicador si ya pasó mucho tiempo
     p.prev_rank = getGlobalRankPosition(p);
     p.rank_changed_at = null;
+    save();
     return '';
   }
   

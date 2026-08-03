@@ -87,6 +87,9 @@ table.lb-table tr:hover td{background:rgba(255,255,255,0.015);cursor:pointer}
 .flag-tip-wrap .flag-tip{position:absolute;bottom:calc(100% + 4px);left:50%;transform:translateX(-50%);background:var(--s3);border:1px solid var(--border2);border-radius:5px;padding:3px 8px;font-size:10px;color:var(--text);white-space:nowrap;pointer-events:none;opacity:0;transition:opacity .15s;font-family:var(--mono);z-index:50}
 .flag-tip-wrap:hover .flag-tip{opacity:1}
 .rank-badge{display:inline-flex;align-items:center;justify-content:center;font-family:var(--mono);font-size:9px;font-weight:700;padding:2px 7px;border-radius:4px;min-width:28px}
+.rank-change-indicator{display:inline-flex;align-items:center;gap:3px;margin-left:6px;font-family:var(--mono);font-size:10px;font-weight:700}
+.rank-up{color:var(--green)}
+.rank-down{color:var(--red)}
 .elo-cell{font-family:var(--mono);font-size:12px;font-weight:600}
 .elo-pvp{color:var(--purple)}.elo-team{color:var(--blue)}.elo-ffa{color:var(--ffa-c)}.elo-gen{color:var(--gold)}
 .streak-pos{color:var(--green);font-family:var(--mono);font-size:11px;font-weight:600}
@@ -475,6 +478,8 @@ function ensureFields(){
     if(!p.ffa_wins)p.ffa_wins=0;if(!p.ffa_losses)p.ffa_losses=0;
     if(!p.pvp_hist)p.pvp_hist=[];if(!p.team_hist)p.team_hist=[];if(!p.ffa_hist)p.ffa_hist=[];
     if(!p.country)p.country='';
+    if(p.prev_rank===undefined)p.prev_rank=null;
+    if(p.rank_changed_at===undefined)p.rank_changed_at=null;
     delete p.elo;
   });
   if(!data.history)data.history=[];
@@ -600,6 +605,23 @@ function streakEl(name){
   if(s.won)return`<span class="streak-pos">🔥 ${s.count}V</span>`;
   return`<span class="streak-neg">❄ ${s.count}D</span>`;
 }
+function renderRankChangeIndicator(p){
+  if(p.prev_rank===null||p.rank_changed_at===null)return'';
+  const now=Date.now();
+  const elapsed=now-p.rank_changed_at;
+  const fadeDuration=24*60*60*1000;
+  if(elapsed>fadeDuration){
+    p.prev_rank=null;
+    p.rank_changed_at=null;
+    return'';
+  }
+  const currentRank=(data.roster||[]).sort((a,b)=>(b.elo_general||1500)-(a.elo_general||1500)).findIndex(x=>x.name===p.name)+1;
+  if(currentRank<0)currentRank=0;
+  const diff=p.prev_rank-currentRank;
+  if(diff===0)return'';
+  if(diff>0)return`<span class="rank-change-indicator rank-up">▲ +${diff}</span>`;
+  return`<span class="rank-change-indicator rank-down">▼ ${Math.abs(diff)}</span>`;
+}
 function winProb(a,b){return 1/(1+Math.pow(10,(b-a)/400));}
 function getK(elo){return elo<800?40:elo<1200?25:12;}
 
@@ -717,7 +739,7 @@ function renderLeaderboard(){
     if(showTeam&&!isSingleMode)cols+=`<td><span class="elo-cell elo-team">${p.elo_team||1500}</span></td>`;
     if(showFfa&&!isSingleMode)cols+=`<td><span class="elo-cell elo-ffa">${p.elo_ffa||1500}</span></td>`;
     if(isSingleMode)cols+=`<td><span class="elo-cell" style="color:${lbSort==='pvp'?'var(--purple)':lbSort==='team'?'var(--blue)':'var(--ffa-c)'}">${p[sortKey]||1500}</span></td>`;
-    cols+=`<td><span class="rank-badge" style="background:${rk.bg};color:${rk.color}">${rk.label}</span></td>
+    cols+=`<td><span class="rank-badge" style="background:${rk.bg};color:${rk.color}">${rk.label}</span>${renderRankChangeIndicator(p)}</td>
       <td>${streakEl(p.name)}</td>
       <td class="parts-cell">${p.partidas||0}</td>`;
     return`<tr onclick="openPlayer('${p.name.replace(/"/g,'&quot;')}')">${cols}</tr>`;
