@@ -1074,11 +1074,7 @@ function calcFFA(teams, winnerIdx){
 }
 
 function applyChanges(changes, mode, histEntry){
-  // Calcular ranks actuales antes de aplicar cambios
-  const beforeRank = {};
-  state.roster.forEach(p => {
-    beforeRank[p.name] = getGlobalRankPosition(p);
-  });
+  const beforeRank = captureGlobalRanks();
   
   changes.forEach(c=>{
     const p=state.roster.find(r=>r.name===c.n);
@@ -1097,25 +1093,31 @@ function applyChanges(changes, mode, histEntry){
     if(p[mode+'_hist'].length>15) p[mode+'_hist'].shift();
   });
   
-  // Actualizar ranks después de aplicar cambios y detectar cambios
-  const now = Date.now();
-  state.roster.forEach(p => {
-    const currentRank = getGlobalRankPosition(p);
-    const prevRank = p.prev_rank !== null ? p.prev_rank : beforeRank[p.name];
-    
-    if (prevRank !== null && prevRank !== currentRank) {
-      p.rank_changed_at = now;
-    } else if (p.rank_changed_at !== null) {
-      // Si el rank no cambió pero tenía un cambio registrado, actualizar prev_rank sin cambiar la fecha
-      p.prev_rank = currentRank;
-      return; // Salir temprano para no sobrescribir prev_rank abajo
-    }
-    p.prev_rank = currentRank;
-  });
+  applyRankMovementTracking(beforeRank);
   
   state.history.unshift(histEntry);
   save();
   updateUndoBtn();
+}
+
+function captureGlobalRanks() {
+  const ranks = {};
+  state.roster.forEach(p => {
+    ranks[p.name] = getGlobalRankPosition(p);
+  });
+  return ranks;
+}
+
+function applyRankMovementTracking(beforeRanks) {
+  const now = Date.now();
+  state.roster.forEach(p => {
+    const previousRank = beforeRanks[p.name] ?? null;
+    const currentRank = getGlobalRankPosition(p);
+    if (previousRank !== null && currentRank !== null && previousRank !== currentRank) {
+      p.prev_rank = previousRank;
+      p.rank_changed_at = now;
+    }
+  });
 }
 
 function getGlobalRankPosition(player) {
@@ -2798,6 +2800,7 @@ function revertSingleMatch(h){
 function saveHistEdit(){
   const h=state.history[_editIdx];if(!h)return;
   const mode=getHistMode(h);
+  const beforeRank = captureGlobalRanks();
   let pA,pB,filledTeams;
   if(mode==='ffa'){
     filledTeams=_editTeams.map(t=>t.filter(Boolean));
@@ -2845,6 +2848,7 @@ function saveHistEdit(){
     h.type=newMode==='pvp'?'pvp':'teams';
   }
   h.changes=newChanges.map(c=>({n:c.n,delta:c.delta,place:c.place}));
+  applyRankMovementTracking(beforeRank);
   save();
   document.getElementById('histEditOverlay').classList.add('hidden');
   renderHistory();renderRoster();
