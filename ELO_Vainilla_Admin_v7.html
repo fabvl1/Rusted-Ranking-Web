@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>ELO Vainilla — Admin v5 (GitHub Gist)</title>
+<title>ELO Vainilla — Admin v6 </title>
 <style>
 :root{
   --bg:#0e0e12;--s1:#15151c;--s2:#1c1c26;--s3:#232330;
@@ -150,8 +150,13 @@ table.roster-table tr:hover td{background:rgba(255,255,255,0.015)}
 .h-del-btn{background:none;border:none;color:var(--muted);cursor:pointer;font-size:14px;padding:0 3px;transition:color .15s}
 .h-del-btn:hover{color:var(--red)}
 .empty-state{text-align:center;padding:36px;color:var(--muted)}
-.achievement{display:inline-flex;align-items:center;gap:4px;background:var(--s3);border:1px solid var(--border2);border-radius:20px;padding:2px 8px;font-size:10px;color:var(--muted);margin:1px}
+.achievement{display:inline-flex;align-items:center;gap:4px;background:var(--s3);border:1px solid var(--border2);border-radius:20px;padding:2px 8px;font-size:10px;color:var(--muted);margin:1px;cursor:pointer;transition:.15s}
+.achievement:hover{transform:scale(1.05);border-color:var(--text-muted)}
 .achievement.earned{border-color:var(--gold);color:var(--gold);background:rgba(212,168,67,0.1)}
+.achievement.earned:hover{border-color:#ffe066;box-shadow:0 0 8px rgba(212,168,67,0.3)}
+.ach-icon{font-size:12px}.ach-label{font-weight:500}.ach-pct{font-size:9px;opacity:.6;font-family:var(--mono);margin-left:2px}
+.ach-divider{font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin:8px 0 4px;padding-top:6px;border-top:1px dashed var(--border2);opacity:.5}
+.ach-section{display:flex;flex-wrap:wrap;gap:2px;margin-bottom:14px;align-items:flex-start}
 .modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.78);z-index:500;display:flex;align-items:center;justify-content:center;padding:16px;backdrop-filter:blur(4px)}
 .modal-overlay.hidden{display:none}
 .modal{background:var(--s1);border:1px solid var(--border2);border-radius:16px;width:100%;max-width:700px;max-height:92vh;overflow-y:auto;box-shadow:0 24px 80px rgba(0,0,0,0.6)}
@@ -172,7 +177,7 @@ table.roster-table tr:hover td{background:rgba(255,255,255,0.015)}
 .chart-tab.active{background:var(--s3);color:var(--gold);font-weight:600}
 .chart-wrap{background:var(--s2);border:1px solid var(--border);border-radius:10px;padding:12px;margin-bottom:14px}
 .chart-title{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;margin-bottom:10px;font-family:var(--mono)}
-canvas.elo-chart{width:100%;height:130px;display:block}
+canvas.elo-chart{width:100%;height:160px;display:block}
 .modal-section-title{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;font-family:var(--mono);margin-bottom:8px;margin-top:14px}
 .wbar-row{display:flex;align-items:center;gap:8px;margin-bottom:6px}
 .wbar-label{font-size:11px;min-width:80px;color:var(--muted)}
@@ -193,11 +198,6 @@ canvas.elo-chart{width:100%;height:130px;display:block}
 .undo-strip.hidden{display:none}
 .undo-msg{font-size:12px;color:var(--gold)}
 .elo-pvp{color:var(--purple)}.elo-team{color:var(--blue)}.elo-ffa{color:var(--ffa-c)}.elo-gen{color:var(--gold)}
-.ffa-a .ffa-team-name{color:var(--blue)}
-.ffa-b .ffa-team-name{color:var(--red)}
-.ffa-c-t .ffa-team-name{color:var(--green)}
-.ffa-d .ffa-team-name{color:var(--orange)}
-.ffa-e .ffa-team-name{color:var(--ffa-c)}
 @media(max-width:620px){.teams-grid,.modal-grid{grid-template-columns:1fr}.content{padding:14px}.history-card{grid-template-columns:65px 1fr}}
 .country-select{background:var(--s2);border:1px solid var(--border2);border-radius:var(--r);color:var(--text);padding:3px 7px;font-size:13px;cursor:pointer}
 .country-select:focus{outline:none;border-color:var(--gold)}
@@ -232,7 +232,7 @@ canvas.elo-chart{width:100%;height:130px;display:block}
 <header>
   <div class="logo">
     <div class="logo-icon">RW</div>
-    <div><div class="logo-text">ELO Vainilla v5</div><div class="logo-sub" id="syncStatusLbl">Admin · GitHub Gist</div></div>
+    <div><div class="logo-text">ELO Vainilla v7 (Kaladin no tiene conexion ni corriente)</div><div class="logo-sub" id="syncStatusLbl">Admin · GitHub Gist</div></div>
   </div>
   <div class="header-actions">
     <button class="btn btn-sm btn-teal" onclick="undoLast()" id="undoBtn" style="display:none">↩ Deshacer</button>
@@ -538,23 +538,59 @@ function buildCountrySelect(selectedCode,id,cls,onchange){
 // ═══════════════════════════════════════════════════════
 const DEFAULT_NAMES = ["Mehmet","Dark","EMET","Zawita_Dani","Kaladin","ShadowShogun(SS)","Tierrita","Big tucu","The end","Elder","Nonito","The Vikings","Kamikari","SHadowBlack","EL CUBANO","Kendal","Colonizador","Liucan","Nokia","Italia","MR tonke","Nacho 207","Zninja","Alex","D","Habanero","ELDany19119","Regame","Lazaro","Oslay cuba","MTG","Frisk","Rafa","Cabre 18","Grecia","Caleb","Yovany","Erick","Juanki","Osmel","Venezuela","Pablo","Chulito07","Harlond","Otis","Armis","Patataman"];
 
-const FFA_TEAM_LABELS = ['A','B','C','D','E'];
-const FFA_TEAM_COLORS = ['var(--blue)','var(--red)','var(--green)','var(--orange)','var(--ffa-c)'];
-const FFA_CSS_CLASSES = ['ffa-a','ffa-b','ffa-c-t','ffa-d','ffa-e'];
+const FFA_PALETTE=['var(--blue)','var(--red)','var(--green)','var(--orange)','var(--ffa-c)','#f0f','#0ff','#ff0','#f80','#8f0','#08f','#f44','#4f4','#44f','#fa0','#0af','#af0','#f0a','#a0f','#0fa','#f8a','#a8f','#8fa','#fa8','#af8','#8af'];
+function ffaLabel(i){return i<26?String.fromCharCode(65+i):'E'+(i+1);}
+function ffaColor(i){return FFA_PALETTE[i%FFA_PALETTE.length];}
 
 const ACHIEVEMENTS = [
   {id:'debut',icon:'⚔',label:'Debutante',desc:'Primera partida',check:p=>p.partidas>=1},
   {id:'vet',icon:'🎖',label:'Veterano',desc:'50 partidas',check:p=>p.partidas>=50},
+  {id:'leyenda',icon:'🏆',label:'Leyenda',desc:'100 partidas',check:p=>p.partidas>=100},
   {id:'pvp5',icon:'🗡',label:'Duelista',desc:'5 victorias PVP',check:p=>(p.pvp_wins||0)>=5},
   {id:'pvp10',icon:'⚡',label:'Maestro PVP',desc:'10 victorias PVP',check:p=>(p.pvp_wins||0)>=10},
   {id:'team5',icon:'🛡',label:'Estratega',desc:'5 victorias en equipo',check:p=>(p.team_wins||0)>=5},
   {id:'team10',icon:'🏰',label:'Comandante',desc:'10 victorias en equipo',check:p=>(p.team_wins||0)>=10},
   {id:'ffa1',icon:'👑',label:'Rey del FFA',desc:'Primera victoria FFA',check:p=>(p.ffa_wins||0)>=1},
   {id:'ffa3',icon:'🌟',label:'Dominador FFA',desc:'3 victorias FFA',check:p=>(p.ffa_wins||0)>=3},
+  {id:'ffa10',icon:'💀',label:'Depredador',desc:'10 victorias FFA',check:p=>(p.ffa_wins||0)>=10},
   {id:'streak5',icon:'🔥',label:'En llamas',desc:'Racha de 5 victorias',check:(p,name,st)=>getBestStreak(name,st)>=5},
-  {id:'streak10',icon:'💥',label:'Imbatible',desc:'Racha de 10 victorias',check:(p,name,st)=>getBestStreak(name,st)>=10},
+  {id:'streak10',icon:'💥',label:'Imparable',desc:'Racha de 10 victorias',check:(p,name,st)=>getBestStreak(name,st)>=10},
+  {id:'streak20',icon:'🌀',label:'Imbatible',desc:'Racha de 20 victorias',check:(p,name,st)=>getBestStreak(name,st)>=20},
   {id:'allmode',icon:'🎯',label:'Todo Terreno',desc:'Victorias en los 3 modos',check:p=>(p.pvp_wins||0)>=1&&(p.team_wins||0)>=1&&(p.ffa_wins||0)>=1},
   {id:'top',icon:'🥇',label:'Líder',desc:'#1 en algún ranking',check:(p,name,st)=>isTopPlayer(name,st)},
+  {id:'dioses',icon:'⚡',label:'Asesino de dioses',desc:'Vencer a Mehmet en 1vs1',check:(p,name,st)=>(st.history||[]).some(h=>{
+    const inA=(h.teamA||[]).includes(name),inB=(h.teamB||[]).includes(name);
+    if(!inA&&!inB)return false;
+    if((h.teamA||[]).length!==1||(h.teamB||[]).length!==1)return false;
+    const won=didPlayerWin(name,h);
+    const rival=inA?(h.teamB||[])[0]:(h.teamA||[])[0];
+    return won&&rival==='Mehmet';
+  })},
+  {id:'inquebrantable',icon:'🛡',label:'Inquebrantable',desc:'15 derrotas en total',check:p=>(p.losses||0)>=15},
+  {id:'heroe1v2',icon:'💪',label:'Héroe (1vs2)',desc:'Ganar una partida en inferioridad numérica (1vs2)',check:(p,name,st)=>(st.history||[]).some(h=>{
+    const inA=(h.teamA||[]).includes(name),inB=(h.teamB||[]).includes(name);
+    if(!inA&&!inB)return false;
+    if(h.mode==='ffa'||h.type==='ffa')return false;
+    const myTeam=inA?h.teamA:h.teamB;
+    const theirTeam=inA?h.teamB:h.teamA;
+    return myTeam.length<theirTeam.length&&didPlayerWin(name,h);
+  })},
+  {id:'heroe1v3',icon:'🔥',label:'Leyenda (1vs3)',desc:'Ganar una partida 1vs3 o peor',check:(p,name,st)=>(st.history||[]).some(h=>{
+    const inA=(h.teamA||[]).includes(name),inB=(h.teamB||[]).includes(name);
+    if(!inA&&!inB)return false;
+    if(h.mode==='ffa'||h.type==='ffa')return false;
+    const myTeam=inA?h.teamA:h.teamB;
+    const theirTeam=inA?h.teamB:h.teamA;
+    return myTeam.length===1&&theirTeam.length>=3&&didPlayerWin(name,h);
+  })},
+  {id:'gloria',icon:'🌟',label:'Gloria Eterna',desc:'Alcanzar 2100 ELO',check:p=>(p.elo_general||0)>=2100},
+  {id:'comeback',icon:'🔄',label:'Resurgir',desc:'Bajar de 1300 y volver a 1600+',check:p=>{
+    if((p.elo_general||1500)<1600)return false;
+    const allSnaps=[...(p.pvp_hist||[]),...(p.team_hist||[]),...(p.ffa_hist||[])];
+    let minElo=1500,elo=1500;
+    allSnaps.forEach(s=>{elo+=s.delta;if(elo<minElo)minElo=elo;});
+    return minElo<1300;
+  }},
 ];
 
 // ═══════════════════════════════════════════════════════
@@ -570,6 +606,8 @@ function setCalcMode(m){
   calcMode=m;
   document.getElementById('modeNormal').classList.toggle('active',m==='normal');
   document.getElementById('modeFFA').classList.toggle('active',m==='ffa');
+  document.getElementById('normalMode').style.display=m==='normal'?'':'none';
+  document.getElementById('ffaMode').style.display=m==='ffa'?'':'none';
   if(m==='ffa')renderFFA();else renderCalc();
 }
 let histView = 'all', histType = 'all';
@@ -616,7 +654,8 @@ async function getGistContent(gistId, token) {
   if (!res.ok) throw new Error(`HTTP ${res.status}: ${res.statusText}`);
   const data = await res.json();
   const files = data.files;
-  const jsonFile = Object.values(files).find(f => f.filename && f.filename.endsWith('.json'));
+  const stateFile = Object.values(files).find(f => f.filename === 'state.json');
+  const jsonFile = stateFile || Object.values(files).find(f => f.filename && f.filename.endsWith('.json'));
   if (!jsonFile) throw new Error('No se encontró archivo .json en el gist');
   return JSON.parse(jsonFile.content);
 }
@@ -657,7 +696,7 @@ async function gistLoad(silent) {
     ensureFields();
     save();
     lastCloudSync = Date.now();
-    resolvedPendingIds = new Set();
+    resolvedPendingIds = new Set(state.resolvedReports || []);
     renderAllAdmin();
     updateSyncBadge();
     if (!silent) toast('✅ Cargado desde GitHub Gist');
@@ -838,6 +877,7 @@ function ensureFields(){
   if(!state.history)state.history=[];
   if(!state.tournaments)state.tournaments=[];
   if(!state.reports)state.reports=[];
+  if(!state.resolvedReports)state.resolvedReports=[];
   if(Array.isArray(state.pending)&&state.pending.length){state.reports=state.reports.concat(state.pending);}
   delete state.pending;
   state.roster.forEach(p=>{
@@ -907,26 +947,25 @@ function calcNormal(pA, pB, winner){
   const rivalAvgW = winner==='A'?avgB:avgA;
   const rivalAvgL = winner==='A'?avgA:avgB;
   if(mode==='team'){
-    const teamProbW = winProb(avgA, avgB);
-    const teamProbL = winProb(avgB, avgA);
-    winners.forEach(n => {
-      const K = getK(getElo(n,mode))*2;
-      changes.push({
-        n, mode, won:true,
-        elo_before: getElo(n,mode),
-        rival_ref: Math.round(rivalAvgW),
-        delta: Math.round(K*(1-teamProbW))
-      });
-    });
-    losers.forEach(n => {
-      const K = getK(getElo(n,mode))*2;
-      changes.push({
-        n, mode, won:false,
-        elo_before: getElo(n,mode),
-        rival_ref: Math.round(rivalAvgL),
-        delta: Math.round(K*(0-teamProbL))
-      });
-    });
+    const effA = avgA * numFactor(pA.length, pB.length);
+    const effB = avgB * numFactor(pB.length, pA.length);
+    const teamProb = Math.min(0.85, Math.max(0.15, winProb(effA, effB)));
+    const allElos = [...pA.map(n=>getElo(n,mode)), ...pB.map(n=>getElo(n,mode))];
+    const avgK = Math.round(allElos.reduce((s,e)=>s+getK(e)*2,0)/allElos.length);
+    const raw = avgK * (1 - teamProb);
+    const w=winners.length, l=losers.length;
+    const deltaW = w<=l ? Math.round(raw) : Math.round(raw*l/w);
+    const deltaL = w<=l ? -Math.round(raw*w/l) : -Math.round(raw);
+    winners.forEach(n => changes.push({
+      n, mode, won:true, elo_before:getElo(n,mode),
+      rival_ref: Math.round(winner==='A'?avgB:avgA),
+      delta: deltaW
+    }));
+    losers.forEach(n => changes.push({
+      n, mode, won:false, elo_before:getElo(n,mode),
+      rival_ref: Math.round(winner==='A'?avgA:avgB),
+      delta: deltaL
+    }));
   }else{
     const loserChg = losers.map(n=>({
       n, mode, won:false,
@@ -942,50 +981,88 @@ function calcNormal(pA, pB, winner){
   return {changes, mode};
 }
 
+function ffaPairDelta(pA,pB,mode){
+  const avgA=teamAvg(pA,mode), avgB=teamAvg(pB,mode);
+  const prob=Math.min(0.85,Math.max(0.15,winProb(avgA,avgB)));
+  const allElos=[...pA.map(n=>getElo(n,mode)),...pB.map(n=>getElo(n,mode))];
+  const avgK=allElos.reduce((s,e)=>s+getK(e)*2,0)/allElos.length;
+  const raw=avgK*(1-prob);
+  const w=pA.length, l=pB.length;
+  return {dW:w<=l?raw:raw*l/w, dL:w<=l?-raw*w/l:-raw};
+}
+
 function calcFFAOrder(teams, order){
   const mode='ffa';
   const n=teams.length;
   const rankOf=new Array(n);
   order.forEach((teamIdx,rank)=>{rankOf[teamIdx]=rank;});
   const teamAvgElo=teams.map(t=>teamAvg(t,mode));
-  const teamDeltaSum=new Array(n).fill(0);
-  for(let i=0;i<n;i++){
-    for(let j=0;j<n;j++){
-      if(i===j)continue;
-      const iBetter=rankOf[i]<rankOf[j];
-      teamDeltaSum[i]+=calcDelta(teamAvgElo[i],teamAvgElo[j],iBetter);
-    }
-  }
+  const U=10;
+  const fCoeff=teams.map((team,ti)=>{
+    const p=rankOf[ti]+1;
+    const m=Math.floor(n/2);
+    if(p<=m)return n-p;
+    if(n%2===1&&p===m+1)return 0;
+    return 1-p;
+  });
+  const totalPlayers=teams.reduce((s,t)=>s+t.length,0);
+  const avgSize=totalPlayers/n;
+  const teamDelta=teams.map((team,ti)=>{
+    const f=fCoeff[ti];
+    if(f===0)return 0;
+    const sizeFac=avgSize?Math.pow(team.length===avgSize?1:(f>0?avgSize/team.length:team.length/avgSize),0.3):1;
+    let expScore=0;
+    teamAvgElo.forEach((rj,j)=>{
+      if(j!==ti)expScore+=winProb(teamAvgElo[ti],rj);
+    });
+    expScore/=Math.max(1,n-1);
+    const eloFac=Math.max(0.4,Math.min(2.0,(f>0?2*(1-expScore):2*expScore)));
+    return U*f*sizeFac*eloFac;
+  });
+  const winnersTotal=teams.reduce((s,_,ti)=>s+(teamDelta[ti]>0?teamDelta[ti]*teams[ti].length:0),0);
+  const losersMag=teams.reduce((s,_,ti)=>s+(teamDelta[ti]<0?-teamDelta[ti]*teams[ti].length:0),0);
+  const ratio=losersMag>0?winnersTotal/losersMag:0;
   const changes=[];
-  teams.forEach((team,i)=>{
-    const avgDelta=Math.round(teamDeltaSum[i]/(n-1));
-    const place=rankOf[i]+1;
-    const won=place===1;
+  teams.forEach((team,ti)=>{
+    const p=rankOf[ti]+1;
+    const rivalsAvg=(teamAvgElo.filter((_,j)=>j!==ti).reduce((s,e)=>s+e,0))/(n-1);
     team.forEach(pn=>{
-      changes.push({n:pn,mode,won,elo_before:getElo(pn,mode),rival_ref:Math.round(teamAvgElo[i]),delta:avgDelta,place});
+      const raw=teamDelta[ti];
+      const delta=Math.round(raw<0?raw*ratio:raw);
+      changes.push({n:pn,mode,won:p===1,elo_before:getElo(pn,mode),rival_ref:Math.round(rivalsAvg),delta,place:p});
     });
   });
+  const residual=-changes.reduce((s,x)=>s+x.delta,0);
+  if(residual){
+    let best=changes[0];
+    changes.forEach(c=>{if(c.delta>best.delta)best=c;});
+    best.delta+=residual;
+  }
   return {changes,mode,order};
 }
 
 function calcFFA(teams, winnerIdx){
   const mode='ffa';
-  const allPlayers = teams.flat();
-  const winnerTeam = teams[winnerIdx];
-  const loserTeams = teams.filter((_,i)=>i!==winnerIdx);
-  const loserPlayers = loserTeams.flat();
-  const allRivalsAvg = teamAvg(loserPlayers, mode);
-  const changes = [];
-  loserTeams.forEach(team=>{
-    const others = allPlayers.filter(n=>!team.includes(n));
-    const othersAvg = teamAvg(others, mode);
-    team.forEach(n=>{
-      changes.push({n,mode,won:false,elo_before:getElo(n,mode),rival_ref:Math.round(othersAvg),delta:calcDelta(getElo(n,mode),othersAvg,false)});
+  const n=teams.length;
+  const acc=teams.map(t=>t.map(()=>0));
+  teams.forEach((team,j)=>{
+    if(j===winnerIdx)return;
+    const {dW,dL}=ffaPairDelta(teams[winnerIdx],team,mode);
+    teams[winnerIdx].forEach((_,pi)=>acc[winnerIdx][pi]+=dW);
+    team.forEach((_,pj)=>acc[j][pj]+=dL);
+  });
+  const changes=[];
+  teams.forEach((team,ti)=>{
+    team.forEach((pn,pi)=>{
+      changes.push({n:pn,mode,won:ti===winnerIdx,elo_before:getElo(pn,mode),rival_ref:Math.round(teamAvg(team,mode)),delta:Math.round(acc[ti][pi]),place:ti===winnerIdx?1:null});
     });
   });
-  const pool = changes.reduce((s,x)=>s+Math.abs(x.delta),0);
-  const winAlloc = distributePool(winnerTeam, pool, allRivalsAvg, mode);
-  winAlloc.forEach(x=>changes.unshift({n:x.n,mode,won:true,elo_before:x.elo,rival_ref:Math.round(allRivalsAvg),delta:x.delta}));
+  const residual=-changes.reduce((s,x)=>s+x.delta,0);
+  if(residual){
+    let best=changes[0];
+    changes.forEach(c=>{if(c.delta>best.delta)best=c;});
+    best.delta+=residual;
+  }
   return {changes, mode};
 }
 
@@ -1143,6 +1220,15 @@ function applyNormal(winner){
   renderCalc();
 }
 
+function addFFATeam(){
+  if(ffaTeams.length>=26){toast('Máximo 26 equipos','err');return;}
+  ffaTeams.push(['']);renderFFA();
+}
+function removeFFATeam(){
+  if(ffaTeams.length<=2){toast('Mínimo 2 equipos','err');return;}
+  ffaTeams.pop();renderFFA();
+}
+
 function renderFFA(){
   const count=ffaTeams.length;
   document.getElementById('ffaTeamCount').textContent=`${count} equipos`;
@@ -1155,10 +1241,11 @@ function renderFFA(){
 
   ffaTeams.forEach((team,ti)=>{
     const card=document.createElement('div');
-    card.className=`ffa-team-card ${FFA_CSS_CLASSES[ti]}`;
-    const label=FFA_TEAM_LABELS[ti];
+    card.className='ffa-team-card';
+    card.style.borderLeft=`3px solid ${ffaColor(ti)}`;
+    const label=ffaLabel(ti);
     card.innerHTML=`<div class="ffa-team-header">
-      <div class="ffa-team-name" style="color:${FFA_TEAM_COLORS[ti]}">⚔ Equipo ${label}</div>
+      <div class="ffa-team-name" style="color:${ffaColor(ti)}">⚔ Equipo ${label}</div>
       <div class="team-avg" id="ffaAvg${ti}" style="font-family:var(--mono);font-size:10px;color:var(--muted)">—</div>
     </div>
     <div class="ffa-body" id="ffaBody${ti}"></div>`;
@@ -1178,7 +1265,7 @@ function renderFFA(){
     const addBtn=document.createElement('button');
     addBtn.className='add-slot-btn';addBtn.textContent='+ agregar jugador';
     addBtn.onclick=()=>{ffaTeams[ti].push('');renderFFA();};
-    if(team.length<5) body.appendChild(addBtn);
+    if(team.length<10) body.appendChild(addBtn);
 
     const filled=team.filter(Boolean);
     const el=card.querySelector(`#ffaAvg${ti}`);
@@ -1192,7 +1279,7 @@ function renderFFA(){
 
   if(!anyFilled){probSec.style.display='none';winBtns.style.display='none';return;}
 
-  const chips=allFilled.map((t,i)=>t.length?`<div class="chip chip-ffa">Eq. ${FFA_TEAM_LABELS[i]} avg: <span>${Math.round(teamAvg(t,'ffa'))}</span></div>`:''  ).join('');
+  const chips=allFilled.map((t,i)=>t.length?`<div class="chip chip-ffa">Eq. ${ffaLabel(i)} avg: <span>${Math.round(teamAvg(t,'ffa'))}</span></div>`:''  ).join('');
   const totalPlayers=allFilled.reduce((s,t)=>s+t.length,0);
   document.getElementById('ffaStatsChips').innerHTML=`<div class="chip chip-ffa">FFA · ${ffaTeams.length} equipos · ${totalPlayers} jugadores</div>${chips}<div class="chip chip-ffa">Pool suma cero</div>`;
   probSec.style.display='';
@@ -1216,7 +1303,7 @@ function renderFFA(){
         if(isDead)label=`☠ ${place}° puesto`;
         else if(ready)label=`🏆 1er puesto`;
         else label=`Vivo — click si murió`;
-        return`<button type="button" class="ffa-win-btn" style="color:${FFA_TEAM_COLORS[i]};border-color:${FFA_TEAM_COLORS[i]};background:${FFA_TEAM_COLORS[i]}18;${isDead||ready?'opacity:.85':''}" ${isDead||ready?'disabled':''} onclick="markFfaDead(${i})">Eq. ${FFA_TEAM_LABELS[i]} — ${label}</button>`;
+        return`<button type="button" class="ffa-win-btn" style="color:${ffaColor(i)};border-color:${ffaColor(i)};background:${ffaColor(i)}18;${isDead||ready?'opacity:.85':''}" ${isDead||ready?'disabled':''} onclick="markFfaDead(${i})">Eq. ${ffaLabel(i)} — ${label}</button>`;
       }).join('')}
     </div>
     <div style="display:flex;gap:8px;width:100%">
@@ -1235,15 +1322,6 @@ function undoFfaDeath(){
   renderFFA();
 }
 
-function addFFATeam(){
-  if(ffaTeams.length>=5){toast('Máximo 5 equipos','err');return;}
-  ffaTeams.push(['']);renderFFA();
-}
-function removeFFATeam(){
-  if(ffaTeams.length<=2){toast('Mínimo 2 equipos','err');return;}
-  ffaTeams.pop();renderFFA();
-}
-
 function applyFFAOrder(){
   const filled=ffaTeams.map(t=>t.filter(Boolean));
   if(filled.some(t=>!t.length)){toast('Todos los equipos necesitan al menos 1 jugador','err');return;}
@@ -1254,13 +1332,13 @@ function applyFFAOrder(){
   const {changes,mode}=calcFFAOrder(filled,order);
   const ts=new Date().toLocaleString('es',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'});
   const histEntry={ts,_ts:new Date().toISOString(),mode:'ffa',type:'ffa',format:filled.map(t=>t.length).join('v'),
-    winnerTeamIdx:order[0],winnerTeam:FFA_TEAM_LABELS[order[0]],
-    order,placements:order.map((teamIdx,rank)=>({team:FFA_TEAM_LABELS[teamIdx],place:rank+1})),
+    winnerTeamIdx:order[0],winnerTeam:ffaLabel(order[0]),
+    order,placements:order.map((teamIdx,rank)=>({team:ffaLabel(teamIdx),place:rank+1})),
     teams:filled.map(t=>[...t]),teamA:filled[0]||[],teamB:filled[1]||[],
     changes:changes.map(c=>({n:c.n,delta:c.delta,place:c.place}))};
   applyChanges(changes,'ffa',histEntry);
   showResultTable(changes,'ffa');
-  toast(`✅ FFA aplicado — 1er puesto: Equipo ${FFA_TEAM_LABELS[order[0]]}`);
+  toast(`✅ FFA aplicado — 1er puesto: Equipo ${ffaLabel(order[0])}`);
   ffaDeathOrder=[];
   renderFFA();
 }
@@ -1270,10 +1348,10 @@ function applyFFA(winnerIdx){
   if(filled.some(t=>!t.length)){toast('Todos los equipos necesitan al menos 1 jugador','err');return;}
   const {changes,mode}=calcFFA(filled,winnerIdx);
   const ts=new Date().toLocaleString('es',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'});
-  const histEntry={ts,_ts:new Date().toISOString(),mode:'ffa',type:'ffa',format:filled.map(t=>t.length).join('v'),winnerTeamIdx:winnerIdx,winnerTeam:FFA_TEAM_LABELS[winnerIdx],teams:filled.map(t=>[...t]),teamA:filled[0]||[],teamB:filled[1]||[],changes:changes.map(c=>({n:c.n,delta:c.delta}))};
+  const histEntry={ts,_ts:new Date().toISOString(),mode:'ffa',type:'ffa',format:filled.map(t=>t.length).join('v'),winnerTeamIdx:winnerIdx,winnerTeam:ffaLabel(winnerIdx),teams:filled.map(t=>[...t]),teamA:filled[0]||[],teamB:filled[1]||[],changes:changes.map(c=>({n:c.n,delta:c.delta}))};
   applyChanges(changes,'ffa',histEntry);
   showResultTable(changes,'ffa');
-  toast(`✅ FFA — Ganó Equipo ${FFA_TEAM_LABELS[winnerIdx]}`);
+  toast(`✅ FFA — Ganó Equipo ${ffaLabel(winnerIdx)}`);
   renderFFA();
 }
 
@@ -1307,7 +1385,8 @@ function showResultTable(changes, mode){
 //  ROSTER
 // ═══════════════════════════════════════════════════════
 function getRank(elo){
-  if(elo>=2200)return{label:'SS',bg:'rgba(232,64,64,0.15)',color:'#e04848'};
+  if(elo>=2100)return{label:'SSS',bg:'rgba(255,77,0,0.18)',color:'#ff4d00'};
+  if(elo>=2000)return{label:'SS',bg:'rgba(232,64,64,0.18)',color:'#e04848'};
   if(elo>=1900)return{label:'S',bg:'rgba(212,168,67,0.15)',color:'#d4a843'};
   if(elo>=1650)return{label:'A',bg:'rgba(62,207,136,0.12)',color:'#3ecf88'};
   if(elo>=1500)return{label:'B',bg:'rgba(78,181,255,0.12)',color:'#4eb5ff'};
@@ -1364,6 +1443,15 @@ function isTopPlayer(name,st){
   const byFfa=[...roster].sort((a,b)=>b.elo_ffa-a.elo_ffa);
   const byGen=[...roster].sort((a,b)=>b.elo_general-a.elo_general);
   return[byPvp,byTeam,byFfa,byGen].some(r=>r[0]?.name===name);
+}
+function achievementStats(){
+  const total=state.roster.length;
+  const map={};
+  ACHIEVEMENTS.forEach(a=>{
+    const count=state.roster.filter(p=>{try{return a.check(p,p.name,state);}catch(e){return false;}}).length;
+    map[a.id]=total>0?Math.round(count/total*100):0;
+  });
+  return map;
 }
 
 function sortRoster(m){sortMode=m;renderRoster();}
@@ -1544,6 +1632,8 @@ function openProfile(name){
   });
   const topRivals=Object.entries(rc).sort((a,b)=>b[1].games-a[1].games).slice(0,5);
   const earned=ACHIEVEMENTS.filter(a=>{try{return a.check(p,name,state);}catch(e){return false;}});
+  const earnedIds=new Set(earned.map(a=>a.id));
+  const achPcts=achievementStats();
 
   const body=document.getElementById('modalBody');
   body.innerHTML=`
@@ -1577,9 +1667,19 @@ function openProfile(name){
       <div class="mstat"><div class="mstat-val" style="color:var(--green)">${bestStreak||'-'}</div><div class="mstat-lbl">Mejor racha</div></div>
       <div class="mstat"><div class="mstat-val" style="color:var(--green)">${bestGame?'+'+bestGame.delta:'—'}</div><div class="mstat-lbl">Mejor partida</div></div>
     </div>
-    <div class="modal-section-title">Logros (${earned.length}/${ACHIEVEMENTS.length})</div>
-    <div style="margin-bottom:14px;line-height:2">
-      ${ACHIEVEMENTS.map(a=>{const e=earned.find(x=>x.id===a.id);return`<span class="achievement ${e?'earned':''}" title="${a.desc}">${a.icon} ${a.label}</span>`}).join('')}
+    <div class="modal-section-title">Logros ${earned.length}/${ACHIEVEMENTS.length}</div>
+    <div class="ach-section">
+      ${ACHIEVEMENTS.filter(a=>earnedIds.has(a.id)).map(a=>{
+        const pct=achPcts[a.id]||0;
+        return`<span class="achievement earned" onclick="toast('${(a.desc+' — '+pct+'% de jugadores lo tiene').replace(/'/g,"\\'")}')"><span class="ach-icon">${a.icon}</span><span class="ach-label">${a.label}</span><span class="ach-pct">${pct}%</span></span>`;
+      }).join('')}
+      ${ACHIEVEMENTS.filter(a=>!earnedIds.has(a.id)).length?`
+        <div class="ach-divider">Faltantes</div>
+        ${ACHIEVEMENTS.filter(a=>!earnedIds.has(a.id)).map(a=>{
+          const pct=achPcts[a.id]||0;
+          return`<span class="achievement" onclick="toast('${(a.desc+' — '+pct+'% de jugadores lo tiene').replace(/'/g,"\\'")}')"><span class="ach-icon">${a.icon}</span><span class="ach-label">${a.label}</span><span class="ach-pct">${pct}%</span></span>`;
+        }).join('')}
+      `:''}
     </div>
     <div class="modal-section-title">Rivales frecuentes</div>
     <div class="rivals-list">${topRivals.length?topRivals.map(([r,d])=>`<div class="rival-row"><span class="rival-name">${r}</span><span class="rival-rec">${d.games}p. · ${d.games?Math.round(d.wins/d.games*100):0}% W</span></div>`).join(''):'<div style="color:var(--muted);font-size:11px;padding:6px 0">Sin enfrentamientos</div>'}</div>
@@ -1605,7 +1705,7 @@ function drawModalChart(p,mode){
   let snaps;
   if(mode==='gen'){
     snaps=[...(p.pvp_hist||[]).map(x=>({...x,cat:'pvp'})),...(p.team_hist||[]).map(x=>({...x,cat:'team'})),...(p.ffa_hist||[]).map(x=>({...x,cat:'ffa'}))].sort((a,b)=>new Date(a.ts)-new Date(b.ts));
-    const baseGen=1500;
+    const baseGen=1000;
     let elo=baseGen;const eloPoints=[baseGen];
     snaps.forEach(s=>{elo=Math.max(100,elo+s.delta);eloPoints.push(elo);});
     drawChart(canvas,eloPoints,snaps,'#d4a843');return;
@@ -1620,47 +1720,64 @@ function drawModalChart(p,mode){
 function drawChart(canvas,eloPoints,snaps,color){
   const DPR=window.devicePixelRatio||1;
   const ctx=canvas.getContext('2d');
-  canvas.width=canvas.offsetWidth*DPR;canvas.height=130*DPR;
+  canvas.width=canvas.offsetWidth*DPR;canvas.height=160*DPR;
   ctx.clearRect(0,0,canvas.width,canvas.height);
   const W=canvas.width,H=canvas.height;
   if(!snaps||!snaps.length){
     ctx.fillStyle='rgba(107,104,128,0.5)';ctx.font=`${11*DPR}px Consolas`;ctx.textAlign='center';
     ctx.fillText('Sin partidas registradas',W/2,H/2);return;
   }
-  const candles=snaps.map((s,i)=>({
-    open:eloPoints[i]||eloPoints[0],
-    close:eloPoints[i+1]||eloPoints[i],
-    won:s.won
-  }));
-  const allVals=candles.flatMap(c=>[c.open,c.close]);
-  const minE=Math.min(...allVals)-20,maxE=Math.max(...allVals)+20;
-  const range=maxE-minE||100;
-  const PAD=16*DPR,plotW=W-PAD*2,plotH=H-PAD*2;
-  const yOf=v=>PAD+plotH-((v-minE)/range*plotH);
-  const n=candles.length;
-  const slotW=plotW/n;
-  const bodyW=Math.max(3*DPR,Math.min(14*DPR,slotW*0.65));
-  const xOf=i=>PAD+slotW*(i+0.5);
-  ctx.strokeStyle='rgba(42,42,58,0.8)';ctx.lineWidth=1;
-  for(let g=0;g<=4;g++){const y=PAD+g*(plotH/4);ctx.beginPath();ctx.moveTo(PAD,y);ctx.lineTo(W-PAD,y);ctx.stroke();}
-  candles.forEach((c,i)=>{
-    const x=xOf(i);
-    const yO=yOf(c.open),yC=yOf(c.close);
-    const yTop=Math.min(yO,yC),yBot=Math.max(yO,yC);
-    const bodyH=Math.max(2*DPR,yBot-yTop);
-    const cGreen='#3ecf88',cRed='#e84040';
-    const fill=c.won?'rgba(62,207,136,0.82)':'rgba(232,64,64,0.82)';
-    const stroke=c.won?cGreen:cRed;
-    ctx.strokeStyle=stroke;ctx.lineWidth=1.2*DPR;
-    ctx.beginPath();ctx.moveTo(x,yTop);ctx.lineTo(x,yBot);ctx.stroke();
-    ctx.fillStyle=fill;
-    ctx.fillRect(x-bodyW/2,yTop,bodyW,bodyH);
-    ctx.strokeStyle=stroke;ctx.lineWidth=0.8*DPR;
-    ctx.strokeRect(x-bodyW/2,yTop,bodyW,bodyH);
+  const n=eloPoints.length;
+  const minV=Math.min(...eloPoints)-20,maxV=Math.max(...eloPoints)+20;
+  const range=maxV-minV||100;
+  const PAD={t:18*DPR,b:22*DPR,l:46*DPR,r:30*DPR};
+  const plotW=W-PAD.l-PAD.r,plotH=H-PAD.t-PAD.b;
+  const yOf=v=>PAD.t+plotH-((v-minV)/range*plotH);
+  const xOf=i=>PAD.l+(i/(n-1||1))*plotW;
+
+  ctx.textAlign='right';ctx.textBaseline='middle';
+  for(let g=0;g<=4;g++){
+    const v=Math.round(minV+range*g/4),y=PAD.t+plotH*(1-g/4);
+    ctx.strokeStyle='rgba(42,42,58,0.5)';ctx.lineWidth=1*DPR;
+    ctx.beginPath();ctx.moveTo(PAD.l,y);ctx.lineTo(W-PAD.r,y);ctx.stroke();
+    ctx.fillStyle='rgba(107,104,128,0.55)';ctx.font=`${9*DPR}px Consolas`;
+    ctx.fillText(v,PAD.l-5*DPR,y);
+  }
+
+  const grad=ctx.createLinearGradient(0,PAD.t,0,PAD.t+plotH);
+  grad.addColorStop(0,color+'40');grad.addColorStop(1,color+'05');
+  ctx.fillStyle=grad;
+  ctx.beginPath();ctx.moveTo(xOf(0),yOf(eloPoints[0]));
+  for(let i=1;i<n;i++)ctx.lineTo(xOf(i),yOf(eloPoints[i]));
+  ctx.lineTo(xOf(n-1),PAD.t+plotH);ctx.lineTo(xOf(0),PAD.t+plotH);
+  ctx.closePath();ctx.fill();
+
+  ctx.strokeStyle=color;ctx.lineWidth=2*DPR;ctx.lineJoin='round';
+  ctx.beginPath();ctx.moveTo(xOf(0),yOf(eloPoints[0]));
+  for(let i=1;i<n;i++)ctx.lineTo(xOf(i),yOf(eloPoints[i]));
+  ctx.stroke();
+
+  snaps.forEach((s,i)=>{
+    const x=xOf(i+1),y=yOf(eloPoints[i+1]);
+    ctx.beginPath();ctx.arc(x,y,3*DPR,0,Math.PI*2);
+    ctx.fillStyle=s.won?'#3ecf88':'#e84040';ctx.fill();
+    ctx.strokeStyle='#1a1a2e';ctx.lineWidth=1*DPR;ctx.stroke();
   });
-  const lastElo=eloPoints[eloPoints.length-1];
-  ctx.fillStyle=color;ctx.font=`bold ${9*DPR}px Consolas`;ctx.textAlign='right';
-  ctx.fillText(lastElo,W-PAD+2,yOf(lastElo)-5);
+
+  const x0=xOf(0),y0=yOf(eloPoints[0]);
+  ctx.beginPath();ctx.arc(x0,y0,3*DPR,0,Math.PI*2);
+  ctx.fillStyle='rgba(107,104,128,0.7)';ctx.fill();
+  ctx.fillStyle='rgba(107,104,128,0.45)';ctx.font=`${8*DPR}px Consolas`;
+  ctx.textAlign='center';ctx.textBaseline='bottom';
+  ctx.fillText(eloPoints[0],x0,y0-6*DPR);
+
+  const xe=xOf(n-1),ye=yOf(eloPoints[n-1]);
+  ctx.fillStyle=color;ctx.font=`bold ${11*DPR}px Consolas`;
+  ctx.textBaseline='bottom';  ctx.fillText(eloPoints[n-1],xe,ye-6*DPR);
+
+  ctx.fillStyle='rgba(107,104,128,0.35)';ctx.font=`${8*DPR}px Consolas`;
+  ctx.textAlign='center';ctx.textBaseline='top';
+  ctx.fillText(snaps.length+' partidas',PAD.l+plotW/2,H-PAD.b+4*DPR);
 }
 
 function wbarRow(label,w,l,color){
@@ -1703,11 +1820,15 @@ function renderHistory(){
     let teamsHtml='';
     if(mode==='ffa'&&h.teams){
       const placeOf={};(h.order||[]).forEach((teamIdx,rank)=>{placeOf[teamIdx]=rank+1;});
-      h.teams.forEach((t,i)=>teamsHtml+=`<div class="h-teams-txt" style="color:${FFA_TEAM_COLORS[i]}">${FFA_TEAM_LABELS[i]}${placeOf[i]?` (${placeOf[i]}° puesto)`:''}: <strong style="color:var(--text)">${t.join(', ')}</strong></div>`);
+      if(h.winnerTeamIdx!=null&&!h.order)placeOf[h.winnerTeamIdx]=1;
+      h.teams.forEach((t,i)=>{
+        const place=placeOf[i];
+        teamsHtml+=`<div class="h-teams-txt" style="border-left:3px solid ${ffaColor(i)};padding-left:8px"><span style="color:var(--text);font-weight:700">${place?`${place}° puesto`:''}</span> <strong style="color:var(--text)">${t.join(', ')}</strong></div>`;
+      });
     } else {
       teamsHtml=`<div class="h-teams-txt">A: <strong>${(h.teamA||[]).join(', ')}</strong></div><div class="h-teams-txt">B: <strong>${(h.teamB||[]).join(', ')}</strong></div>`;
     }
-    const winLabel=mode==='ffa'?`Ganó ${h.winnerTeam||FFA_TEAM_LABELS[h.winnerTeamIdx||0]}${h.order?` (orden completo)`:''}`:`Ganó ${h.winnerTeam}`;
+    const winLabel=mode==='ffa'?'🏆 1° puesto':`Ganó ${h.winnerTeam}`;
     return`<div class="history-card">
       <div class="h-time">${h.ts}</div>
       <div><span class="h-type-badge ${badgeCls}">${modeLabel}</span>
@@ -1843,6 +1964,7 @@ function renderPending(){
 function removePendingLocally(id){
   state.reports=(state.reports||[]).filter(p=>p.id!==id);
   resolvedPendingIds.add(id);
+  if(!state.resolvedReports.includes(id))state.resolvedReports.push(id);
   save();
   renderPending();
   gistRemoveReport(id);
@@ -2427,7 +2549,7 @@ function closeCPickerOutside(e){if(!document.getElementById('cpicker')?.contains
 // ═══════════════════════════════════════════════════════
 //  HISTORY EDIT
 // ═══════════════════════════════════════════════════════
-let _editIdx=-1,_editSlotsA=[],_editSlotsB=[],_editTeams=[],_editWinner='A',_editWinnerIdx=0;
+let _editIdx=-1,_editSlotsA=[],_editSlotsB=[],_editTeams=[],_editWinner='A',_editWinnerIdx=0,_editDeathOrder=[];
 
 function openEditHistory(idx){
   _editIdx=idx;
@@ -2436,6 +2558,7 @@ function openEditHistory(idx){
   if(mode==='ffa'){
     _editTeams=(h.teams||[h.teamA||[],h.teamB||[]]).map(t=>[...t]);
     _editWinnerIdx=h.winnerTeamIdx??0;
+    _editDeathOrder=Array.isArray(h.order)&&h.order.length===_editTeams.length?[...h.order].slice(1).reverse():[];
   }else{
     _editSlotsA=[...(h.teamA||[])];
     _editSlotsB=[...(h.teamB||[])];
@@ -2462,19 +2585,33 @@ function renderHistEditBody(){
     body+=`<div style="display:grid;gap:10px;margin-bottom:14px">`;
     _editTeams.forEach((_,ti)=>{
       body+=`<div style="background:var(--s2);border:1px solid var(--border);border-radius:10px;padding:12px">
-        <div style="font-size:11px;font-weight:700;color:${FFA_TEAM_COLORS[ti]};margin-bottom:8px">Equipo ${FFA_TEAM_LABELS[ti]}</div>
+        <div style="font-size:11px;font-weight:700;color:${ffaColor(ti)};margin-bottom:8px">Equipo ${ffaLabel(ti)}</div>
         <div id="histEditTeam${ti}"></div>
         <button class="add-slot-btn" style="margin-top:4px" onclick="histEditAddSlot('ffa',${ti})">+ agregar jugador</button>
       </div>`;
     });
     body+=`</div>
     <div style="margin-bottom:16px">
-      <label style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;display:block;margin-bottom:6px">Ganador</label>
-      <div style="display:flex;gap:6px;flex-wrap:wrap" id="histEditWinnerRow">`;
+      <label style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;display:block;margin-bottom:6px">☠ Orden de muerte</label>
+      <div style="display:flex;gap:6px;flex-wrap:wrap" id="histEditDeathRow">`;
+    const n=_editTeams.length;
+    const edReady=_editDeathOrder.length===n-1;
     _editTeams.forEach((_,ti)=>{
-      body+=`<button class="btn btn-sm ${_editWinnerIdx===ti?'btn-gold':''}" onclick="histEditSetWinnerFFA(${ti})" id="histEditWBtn${ti}">Equipo ${FFA_TEAM_LABELS[ti]}</button>`;
+      const deathPos=_editDeathOrder.indexOf(ti);
+      const isDead=deathPos>=0;
+      const place=isDead?(n-deathPos):(edReady?1:null);
+      let label;
+      if(isDead)label=`☠ ${place}° puesto`;
+      else if(edReady)label=`🏆 1er puesto`;
+      else label='Vivo — click si murió';
+      body+=`<button type="button" class="btn btn-sm" style="color:${ffaColor(ti)};border-color:${ffaColor(ti)};background:${ffaColor(ti)}18;${isDead||edReady?'opacity:.85':''}" ${isDead||edReady?'disabled':''} onclick="histEditMarkFfaDead(${ti})">Equipo ${ffaLabel(ti)} — ${label}</button>`;
     });
-    body+=`</div></div>`;
+    body+=`</div>
+      <div style="display:flex;gap:8px;margin-top:8px;align-items:center;flex-wrap:wrap">
+        ${_editDeathOrder.length?`<button type="button" class="btn btn-sm" onclick="histEditUndoFfaDeath()">↩ Deshacer último</button>`:''}
+        <span style="font-size:11px;color:${edReady?'var(--teal)':'var(--muted)'}">${edReady?'✅ Orden completo — ya podés guardar.':`Faltan marcar ${Math.max(0,n-1-_editDeathOrder.length)} equipo(s).`}</span>
+      </div>
+    </div>`;
   }else{
     body+=`<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px">
       <div style="background:var(--s2);border:1px solid rgba(78,181,255,0.3);border-radius:10px;padding:12px">
@@ -2551,9 +2688,15 @@ function histEditSetWinner(w){
   ['A','B'].forEach(t=>{const b=document.getElementById('histEditWBtn'+t);if(b)b.classList.toggle('btn-gold',t===w);});
 }
 
-function histEditSetWinnerFFA(ti){
-  _editWinnerIdx=ti;
-  document.querySelectorAll('[id^="histEditWBtn"]').forEach((b,i)=>b.classList.toggle('btn-gold',i===ti));
+function histEditMarkFfaDead(ti){
+  if(_editDeathOrder.includes(ti))return;
+  _editDeathOrder.push(ti);
+  renderHistEditBody();
+}
+
+function histEditUndoFfaDeath(){
+  _editDeathOrder.pop();
+  renderHistEditBody();
 }
 
 function revertSingleMatch(h){
@@ -2585,9 +2728,13 @@ function saveHistEdit(){
   }
   if(!confirm('¿Guardar cambios? Los ELOs se recalcularán automáticamente.'))return;
   revertSingleMatch(h);
-  let newChanges,newMode;
+  let newChanges,newMode,newOrder;
   if(mode==='ffa'){
-    const r=calcFFA(filledTeams,_editWinnerIdx);newChanges=r.changes;newMode=r.mode;
+    const n=filledTeams.length;
+    const aliveIdx=filledTeams.map((_,i)=>i).filter(i=>!_editDeathOrder.includes(i));
+    if(_editDeathOrder.length!==n-1||aliveIdx.length!==1){toast('Marcá el orden de muerte de todos los equipos menos el ganador','err');return;}
+    newOrder=[aliveIdx[0],...[..._editDeathOrder].reverse()];
+    const r=calcFFAOrder(filledTeams,newOrder);newChanges=r.changes;newMode=r.mode;
   }else{
     const r=calcNormal(pA,pB,_editWinner);newChanges=r.changes;newMode=r.mode;
   }
@@ -2608,14 +2755,16 @@ function saveHistEdit(){
   if(mode==='ffa'){
     h.teams=filledTeams.map(t=>[...t]);
     h.teamA=filledTeams[0]||[];h.teamB=filledTeams[1]||[];
-    h.winnerTeamIdx=_editWinnerIdx;h.winnerTeam=FFA_TEAM_LABELS[_editWinnerIdx];
+    h.winnerTeamIdx=newOrder[0];h.winnerTeam=ffaLabel(newOrder[0]);
+    h.order=[...newOrder];
+    h.placements=newOrder.map((teamIdx,rank)=>({team:ffaLabel(teamIdx),place:rank+1}));
     h.format=filledTeams.map(t=>t.length).join('v');
   }else{
     h.teamA=[...pA];h.teamB=[...pB];h.winnerTeam=_editWinner;
     h.format=`${pA.length}v${pB.length}`;h.mode=newMode;
     h.type=newMode==='pvp'?'pvp':'teams';
   }
-  h.changes=newChanges.map(c=>({n:c.n,delta:c.delta}));
+  h.changes=newChanges.map(c=>({n:c.n,delta:c.delta,place:c.place}));
   save();
   document.getElementById('histEditOverlay').classList.add('hidden');
   renderHistory();renderRoster();
