@@ -924,7 +924,7 @@ function renderOverview(){
       <b style="color:var(--text)">K (sensibilidad)</b><br>
       Depende del ELO del jugador. A menor ELO, más cambia por partida:<br>
       • &lt;800 → K=80  ·  &lt;1200 → K=50  ·  ≥1200 → K=24<br>
-      En partidas de equipo se usa el <b>promedio del K de todos los jugadores</b> y todos los integrantes reciben el mismo cambio.<br><br>
+      En partidas de equipo se usa el <b>promedio del K de todos los jugadores</b>, pero el reparto dentro del equipo se ajusta sutilmente por el ELO individual: quien tiene más ELO gana un poco menos (y pierde un poco más).<br><br>
 
       <b style="color:var(--text)">Probabilidad esperada</b><br>
       Se calcula con los ELOs efectivos (ajustados por cantidad de jugadores):<br>
