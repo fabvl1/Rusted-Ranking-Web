@@ -512,6 +512,7 @@ const ACHIEVEMENTS=[
   {id:'debut',icon:'⚔',label:'Debutante',desc:'Primera partida',check:p=>p.partidas>=1},
   {id:'vet',icon:'🎖',label:'Veterano',desc:'50 partidas',check:p=>p.partidas>=50},
   {id:'leyenda',icon:'🏆',label:'Leyenda',desc:'100 partidas',check:p=>p.partidas>=100},
+  {id:'vetg',icon:'🪖',label:'Veterano de guerra',desc:'250 partidas',check:p=>p.partidas>=250},
   {id:'pvp5',icon:'🗡',label:'Duelista',desc:'5 victorias PVP',check:p=>(p.pvp_wins||0)>=5},
   {id:'pvp10',icon:'⚡',label:'Maestro PVP',desc:'10 victorias PVP',check:p=>(p.pvp_wins||0)>=10},
   {id:'team5',icon:'🛡',label:'Estratega',desc:'5 victorias en equipo',check:p=>(p.team_wins||0)>=5},
@@ -581,16 +582,22 @@ function didWin(name,h){
   if(h.mode==='ffa'||h.type==='ffa'){const wi=h.winnerTeamIdx??0;return(h.teams||[])[wi]?.includes(name)||false;}
   const inA=(h.teamA||[]).includes(name);return(inA&&h.winnerTeam==='A')||(!inA&&h.winnerTeam==='B');
 }
-function getStreak(name){
+function getStreak(name, mode){
   if(!data)return null;
-  const rel=data.history.filter(h=>[...(h.teamA||[]),...(h.teamB||[]),...(h.teams||[]).flat()].includes(name));
+  let rel=data.history;
+  const mm=mode==='gen'?'general':mode;
+  if(mm&&mm!=='general')rel=rel.filter(h=>getHistMode(h)===mm);
+  rel=rel.filter(h=>[...(h.teamA||[]),...(h.teamB||[]),...(h.teams||[]).flat()].includes(name));
   let streak=0,sign=0;
   for(const h of rel){const s=didWin(name,h)?1:-1;if(streak===0){streak=1;sign=s;}else if(s===sign)streak++;else break;}
   return streak===0?null:{count:streak,won:sign===1};
 }
-function getBestStreak(name){
+function getBestStreak(name, mode){
   if(!data)return 0;
-  const rel=data.history.filter(h=>[...(h.teamA||[]),...(h.teamB||[]),...(h.teams||[]).flat()].includes(name));
+  let rel=data.history;
+  const mm=mode==='gen'?'general':mode;
+  if(mm&&mm!=='general')rel=rel.filter(h=>getHistMode(h)===mm);
+  rel=rel.filter(h=>[...(h.teamA||[]),...(h.teamB||[]),...(h.teams||[]).flat()].includes(name));
   let best=0,cur=0,curSign=0;
   for(let i=rel.length-1;i>=0;i--){
     const s=didWin(name,rel[i])?1:-1;
@@ -599,8 +606,8 @@ function getBestStreak(name){
   }
   return best;
 }
-function streakEl(name){
-  const s=getStreak(name);
+function streakEl(name, mode){
+  const s=getStreak(name, mode);
   if(!s)return'<span style="color:var(--muted)">—</span>';
   if(s.won)return`<span class="streak-pos">🔥 ${s.count}V</span>`;
   return`<span class="streak-neg">❄ ${s.count}D</span>`;
@@ -740,7 +747,7 @@ function renderLeaderboard(){
     if(showFfa&&!isSingleMode)cols+=`<td><span class="elo-cell elo-ffa">${p.elo_ffa||1500}</span></td>`;
     if(isSingleMode)cols+=`<td><span class="elo-cell" style="color:${lbSort==='pvp'?'var(--purple)':lbSort==='team'?'var(--blue)':'var(--ffa-c)'}">${p[sortKey]||1500}</span></td>`;
     cols+=`<td><span class="rank-badge" style="background:${rk.bg};color:${rk.color}">${rk.label}</span>${renderRankChangeIndicator(p)}</td>
-      <td>${streakEl(p.name)}</td>
+      <td>${streakEl(p.name, lbSort)}</td>
       <td class="parts-cell">${p.partidas||0}</td>`;
     return`<tr onclick="openPlayer('${p.name.replace(/"/g,'&quot;')}')">${cols}</tr>`;
   }).join('');
@@ -839,25 +846,36 @@ function buildWinPctAndStreakPanels(){
   entries.sort((a,b)=>b.pct-a.pct||b.t-a.t);
   const top5wp=entries.slice(0,5);
   const bot5wp=[...entries].sort((a,b)=>a.pct-b.pct||b.t-a.t).slice(0,5);
-  const streaks=data.roster.map(p=>{
-    const rel=data.history.filter(h=>[...(h.teamA||[]),...(h.teamB||[]),...(h.teams||[]).flat()].includes(p.name));
-    let streak=0,sign=0;
-    for(const h of rel){const s=didWin(p.name,h)?1:-1;if(streak===0){streak=1;sign=s;}else if(s===sign)streak++;else break;}
-    return{name:p.name,count:streak,won:sign===1};
-  }).filter(s=>s.count>0);
-  const topStreaks=[...streaks].filter(s=>s.won).sort((a,b)=>b.count-a.count).slice(0,5);
-  const botStreaks=[...streaks].filter(s=>!s.won).sort((a,b)=>b.count-a.count).slice(0,5);
+  const flagOf=n=>flag(data.roster.find(r=>r.name===n)?.country||'?');
+  const catStreaks=['general','pvp','team','ffa'].map(mm=>{
+    const meta={general:{label:'General',color:'var(--gold)',icon:'📊'},pvp:{label:'PVP',color:'var(--purple)',icon:'🗡'},team:{label:'Equipo',color:'var(--blue)',icon:'🛡'},ffa:{label:'FFA',color:'var(--ffa-c)',icon:'👑'}}[mm];
+    let curW=null,curL=null,best=null;
+    data.roster.forEach(p=>{
+      const cur=getStreak(p.name,mm);
+      if(cur){if(cur.won){if(!curW||cur.count>curW.count)curW={name:p.name,count:cur.count};}
+      else if(!curL||cur.count>curL.count)curL={name:p.name,count:cur.count};}
+      const b=getBestStreak(p.name,mm);
+      if(b>(best?best.count:0))best={name:p.name,count:b};
+    });
+    const row=(label,val)=>`<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;font-size:11px;line-height:1.6">
+      <span style="color:var(--muted);white-space:nowrap">${label}</span>
+      <span style="text-align:right">${val}</span>
+    </div>`;
+    const curTxt=(curW?`${flagOf(curW.name)} ${curW.name} <b style="color:var(--green)">🔥 ${curW.count}V</b>`:'<span style="color:var(--muted)">—</span>')
+      +(curL?` · ${flagOf(curL.name)} ${curL.name} <b style="color:var(--red)">❄ ${curL.count}D</b>`:'');
+    const bestTxt=best?`${flagOf(best.name)} ${best.name} <b style="color:var(--green)">🏆 ${best.count}V</b>`:'<span style="color:var(--muted)">—</span>';
+    return`<div style="background:var(--s2);border:1px solid var(--border);border-radius:10px;padding:10px 12px;display:flex;flex-direction:column;gap:5px">
+      <div style="font-size:10px;font-weight:700;color:${meta.color};text-transform:uppercase;letter-spacing:.05em">${meta.icon} ${meta.label}</div>
+      ${row('Actual',curTxt)}
+      ${row('Histórica',bestTxt)}
+    </div>`;
+  }).join('');
   const wpRow=(e,i,best)=>`<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--border2)">
     <span style="font-family:var(--mono);font-size:10px;color:var(--muted);min-width:16px">${i+1}</span>
     <span style="flex:1;font-size:11px;font-weight:600">${flag(data.roster.find(r=>r.name===e.name)?.country||'?')} ${e.name}</span>
     <span style="font-size:10px;color:${e.color};background:${e.color}18;padding:1px 6px;border-radius:3px;font-family:var(--mono)">${e.label}</span>
     <span style="font-family:var(--mono);font-size:11px;color:${best?'var(--green)':'var(--red)'};font-weight:700">${e.pct}%</span>
     <span style="font-family:var(--mono);font-size:10px;color:var(--muted)">(${e.w}V/${e.l}D)</span>
-  </div>`;
-  const stRow=(s,i,best)=>`<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--border2)">
-    <span style="font-family:var(--mono);font-size:10px;color:var(--muted);min-width:16px">${i+1}</span>
-    <span style="flex:1;font-size:11px;font-weight:600">${flag(data.roster.find(r=>r.name===s.name)?.country||'?')} ${s.name}</span>
-    <span style="font-family:var(--mono);font-size:12px;color:${best?'var(--green)':'var(--red)'};font-weight:700">${best?'🔥':'❄'} ${s.count}${best?'V':'D'}</span>
   </div>`;
   const panel=(title,rows)=>`<div style="background:var(--s1);border:1px solid var(--border);border-radius:12px;padding:14px 16px">
     <div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:10px">${title}</div>
@@ -869,8 +887,7 @@ function buildWinPctAndStreakPanels(){
       ${panel('📉 Peor Win% por categoría',bot5wp.map((e,i)=>wpRow(e,i,false)).join('')||'<div style="color:var(--muted);font-size:11px">Sin datos suficientes</div>')}
     </div>
     <div style="display:flex;flex-direction:column;gap:10px">
-      ${panel('🔥 Mejores rachas actuales',topStreaks.map((s,i)=>stRow(s,i,true)).join('')||'<div style="color:var(--muted);font-size:11px">Sin rachas ganadoras</div>')}
-      ${panel('❄ Peores rachas actuales',botStreaks.map((s,i)=>stRow(s,i,false)).join('')||'<div style="color:var(--muted);font-size:11px">Sin rachas perdedoras</div>')}
+      ${panel('📊 Rachas por categoría',`<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">${catStreaks}</div>`)}
     </div>
   </div>`;
 }
@@ -1209,7 +1226,7 @@ function switchModalChart(mode,name){
   const labels={pvp:'PVP',team:'Equipos',ffa:'FFA',gen:'General (todos)'};
   const el=document.getElementById('vChartTitle');if(el)el.textContent='Evolución ELO — '+(labels[mode]||mode);
   const p=data.roster.find(r=>r.name===name);
-  if(p){drawModalChart(p,mode);renderModalStats(p,mode);}
+  if(p){drawModalChart(p,mode);renderModalStats(p,mode);renderModalRachas(name);}
 }
 function renderModalStats(p,mode){
   const el=document.getElementById('vDynStats');if(!el)return;
@@ -1327,7 +1344,6 @@ function openPlayer(name){
   const pvpT=(p.pvp_wins||0)+(p.pvp_losses||0);
   const teamT=(p.team_wins||0)+(p.team_losses||0);
   const ffaT=(p.ffa_wins||0)+(p.ffa_losses||0);
-  const streak=getStreak(name);
   const rel=data.history.filter(h=>[...(h.teamA||[]),...(h.teamB||[]),...(h.teams||[]).flat()].includes(name));
   const rc={};
   rel.forEach(h=>{
@@ -1338,9 +1354,7 @@ function openPlayer(name){
   const rivals=Object.entries(rc).sort((a,b)=>b[1].games-a[1].games).slice(0,4);
   const wbar=(label,w,l,color)=>{const t=w+l;const pct=t?Math.round(w/t*100):0;
     return`<div class="wbar-row"><span class="wbar-label">${label}</span><div class="wbar-track"><div class="wbar-fill" style="width:${pct}%;background:${color}"></div></div><span class="wbar-pct" style="color:${color}">${t?pct+'%':'—'}</span></div>`;};
-  const bestStreak=getBestStreak(name);
-  const allSnaps=[...(p.pvp_hist||[]),...(p.team_hist||[]),...(p.ffa_hist||[])];
-  const bestGame=allSnaps.length?allSnaps.reduce((b,x)=>x.delta>b.delta?x:b,allSnaps[0]):null;
+
 
   document.getElementById('modalBody').innerHTML=`
     <div class="modal-grid">
@@ -1363,11 +1377,7 @@ function openPlayer(name){
       <canvas class="elo-chart" id="vEloChart" width="600" height="130"></canvas>
     </div>
     <div class="modal-section-title">Rachas</div>
-    <div class="modal-grid" style="margin-bottom:14px">
-      <div class="mstat"><div class="mstat-val" style="color:${streak?.won?'var(--green)':'var(--red)'}">${streak?`${streak.count}${streak.won?'🔥':'❄'}`:'-'}</div><div class="mstat-lbl">Racha actual</div></div>
-      <div class="mstat"><div class="mstat-val" style="color:var(--green)">${bestStreak||'-'}</div><div class="mstat-lbl">Mejor racha</div></div>
-      <div class="mstat"><div class="mstat-val" style="color:var(--green)">${bestGame?'+'+bestGame.delta:'—'}</div><div class="mstat-lbl">Mejor partida</div></div>
-    </div>
+    <div id="vRachas"></div>
     <div class="modal-section-title">Logros</div>
     <div class="ach-section">
       ${(()=>{
@@ -1392,7 +1402,23 @@ function openPlayer(name){
       <button class="btn btn-sm btn-teal" onclick="document.getElementById('modalOverlay').classList.add('hidden');compareA=this.dataset.cname;showTab('compare');renderCompare()" data-cname="${name.replace(/"/g,'&quot;')}">🔀 Comparar con otro jugador</button>
     </div>`;
   document.getElementById('modalOverlay').classList.remove('hidden');
-  setTimeout(()=>{drawModalChart(p,'pvp');renderModalStats(p,'pvp');},50);
+  modalChartName='pvp';
+  setTimeout(()=>{drawModalChart(p,'pvp');renderModalStats(p,'pvp');renderModalRachas(name);},50);
+}
+function renderModalRachas(name){
+  const el=document.getElementById('vRachas');if(!el)return;
+  const p=data.roster.find(r=>r.name===name);if(!p)return;
+  const mm=(modalChartName||'pvp')==='gen'?'general':(modalChartName||'pvp');
+  const streak=getStreak(name,mm);
+  const bestStreak=getBestStreak(name,mm);
+  const allSnaps=[...(p.pvp_hist||[]),...(p.team_hist||[]),...(p.ffa_hist||[])];
+  const bestGame=allSnaps.length?allSnaps.reduce((b,x)=>x.delta>b.delta?x:b,allSnaps[0]):null;
+  const label=mm==='general'?'General':mm.toUpperCase();
+  el.innerHTML=`<div class="modal-grid" style="margin-bottom:14px">
+    <div class="mstat"><div class="mstat-val" style="color:${streak?.won?'var(--green)':'var(--red)'}">${streak?`${streak.count}${streak.won?'🔥':'❄'}`:'-'}</div><div class="mstat-lbl">Racha actual · ${label}</div></div>
+    <div class="mstat"><div class="mstat-val" style="color:var(--green)">${bestStreak||'-'}</div><div class="mstat-lbl">Mejor racha · ${label}</div></div>
+    <div class="mstat"><div class="mstat-val" style="color:var(--green)">${bestGame&&bestGame.delta>0?'+'+bestGame.delta:'—'}</div><div class="mstat-lbl">Mejor partida</div></div>
+  </div>`;
 }
 function closeModal(e){if(e.target===document.getElementById('modalOverlay'))document.getElementById('modalOverlay').classList.add('hidden');}
 

@@ -550,6 +550,7 @@ const ACHIEVEMENTS = [
   {id:'debut',icon:'⚔',label:'Debutante',desc:'Primera partida',check:p=>p.partidas>=1},
   {id:'vet',icon:'🎖',label:'Veterano',desc:'50 partidas',check:p=>p.partidas>=50},
   {id:'leyenda',icon:'🏆',label:'Leyenda',desc:'100 partidas',check:p=>p.partidas>=100},
+  {id:'vetg',icon:'🪖',label:'Veterano de guerra',desc:'250 partidas',check:p=>p.partidas>=250},
   {id:'pvp5',icon:'🗡',label:'Duelista',desc:'5 victorias PVP',check:p=>(p.pvp_wins||0)>=5},
   {id:'pvp10',icon:'⚡',label:'Maestro PVP',desc:'10 victorias PVP',check:p=>(p.pvp_wins||0)>=10},
   {id:'team5',icon:'🛡',label:'Estratega',desc:'5 victorias en equipo',check:p=>(p.team_wins||0)>=5},
@@ -963,16 +964,31 @@ function calcNormal(pA, pB, winner){
     const w=winners.length, l=losers.length;
     const deltaW = w<=l ? Math.round(raw) : Math.round(raw*l/w);
     const deltaL = w<=l ? -Math.round(raw*w/l) : -Math.round(raw);
-    winners.forEach(n => changes.push({
-      n, mode, won:true, elo_before:getElo(n,mode),
-      rival_ref: Math.round(winner==='A'?avgB:avgA),
-      delta: deltaW
-    }));
-    losers.forEach(n => changes.push({
-      n, mode, won:false, elo_before:getElo(n,mode),
-      rival_ref: Math.round(winner==='A'?avgA:avgB),
-      delta: deltaL
-    }));
+    const ALPHA=0.4;
+    const distTeam=(names, pool, teamAvgElo)=>{
+      const weights=names.map(n=>{
+        const adj=(teamAvgElo-getElo(n,mode))/teamAvgElo;
+        return pool>0?1+ALPHA*adj:1-ALPHA*adj;
+      });
+      const wSum=weights.reduce((s,x)=>s+x,0)||1;
+      const base=weights.map(x=>Math.floor(Math.abs(pool)*x/wSum));
+      let rem=Math.abs(pool)-base.reduce((s,x)=>s+x,0);
+      const order=weights.map((x,i)=>({i,f:Math.abs(pool)*x/wSum-Math.floor(Math.abs(pool)*x/wSum)}))
+        .sort((a,b)=>b.f-a.f).map(o=>o.i);
+      const out=names.map((n,i)=>({n,delta:pool>0?base[i]:-base[i]}));
+      for(let k=0;rem>0;k++,rem--){const i=order[k%order.length];out[i].delta+=pool>0?1:-1;}
+      return out;
+    };
+    const wDist=distTeam(winners,deltaW*w,rivalAvgL);
+    const lDist=distTeam(losers,deltaL*l,rivalAvgW);
+    wDist.forEach(x=>changes.push({n:x.n,mode,won:true,elo_before:getElo(x.n,mode),rival_ref:Math.round(rivalAvgW),delta:x.delta}));
+    lDist.forEach(x=>changes.push({n:x.n,mode,won:false,elo_before:getElo(x.n,mode),rival_ref:Math.round(rivalAvgL),delta:x.delta}));
+    const residual=-changes.reduce((s,x)=>s+x.delta,0);
+    if(residual){
+      let best=changes[0];
+      changes.forEach(c=>{if(c.delta>best.delta)best=c;});
+      best.delta+=residual;
+    }
   }else{
     const loserChg = losers.map(n=>({
       n, mode, won:false,
